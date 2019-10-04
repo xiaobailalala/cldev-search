@@ -112,6 +112,7 @@ public class FileTest {
         try (InputStream inputStream = new FileInputStream(csvFile);
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "type", "label1", "label2", "label3", "labelw")
                      .withSkipHeaderRecord(true))) {
+
             for (CSVRecord record : csvRecords) {
                 int labelCount = 0;
                 String label = "";
