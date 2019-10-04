@@ -20,7 +20,6 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -90,10 +89,10 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         Map<String, SearchResultTempBO> searchResultTempBOMap = new HashMap<>(7000);
         for (SearchHit hit : hits) {
             Map<String, Object> source = hit.getSourceAsMap();
-            SearchResultTempBO searchResultTemp = new SearchResultTempBO(source.get("uid").toString(), null, null,
+            SearchResultTempBO searchResultTempBO = new SearchResultTempBO(source.get("uid").toString(), null, null,
                     3, hit.getScore(), source.get("time").toString());
-            searchResultTempBOS.add(searchResultTemp);
-            searchResultTempBOMap.put(source.get("uid").toString(), searchResultTemp);
+            searchResultTempBOS.add(searchResultTempBO);
+            searchResultTempBOMap.put(source.get("uid").toString(), searchResultTempBO);
         }
 
         // 对结果集 List 根据 uid 去重，得到uid集合
@@ -122,43 +121,12 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
 
         long uidNum1 = System.currentTimeMillis();
 
-        Stream<SearchResultTempBO> searchResultTempStream = searchResultTempBOS.stream();
-        // 根据用户id排序，使其同id聚合，其次根据相关性分数进行降序
-        List<SearchResultTempBO> sortByCorrelationScore = searchResultTempStream.sorted((item1, item2) -> {
-            if (item1.getUid().compareTo(item2.getUid()) == 0) {
-                return item2.getCorrelationScore().compareTo(item1.getCorrelationScore());
-            }
-            return item1.getUid().compareTo(item2.getUid());
-        }).collect(Collectors.toList());
-
-        // 根据用户id排序，使其同id聚合，其次根据博文的发表时间降序
-        List<SearchResultTempBO> sortByCreateTime = searchResultTempStream.sorted((item1, item2) -> {
-            if (item1.getUid().compareTo(item2.getUid()) == 0) {
-                return item2.getCreateTime().compareTo(item1.getCreateTime());
-            }
-            return item1.getUid().compareTo(item2.getUid());
-        }).collect(Collectors.toList());
-
-        String theSameUidTemp = sortByCreateTime.size() == 0 ? "" : sortByCreateTime.get(0).getUid();
-        float decayFactorForScore = 1.0f, decayFactorForTime = 1.0f,
-                resScoreForScore = 0.0f, resScoreForTime = 0.0f;
         Float[] floats = new Float[uidList.size()];
-        int floatsIndex = 0;
-        for (int item = 0; item < sortByCorrelationScore.size(); item++) {
-            if (!theSameUidTemp.equals(sortByCorrelationScore.get(item).getUid())) {
-                floats[floatsIndex++] = resScoreForScore * SCORE_WEIGHT + resScoreForTime * TIME_WEIGHT;
-                decayFactorForScore = 1.0f;
-                decayFactorForTime = 1.0f;
-                resScoreForScore = 0.0f;
-                resScoreForTime = 0.0f;
-            }
-            resScoreForScore += sortByCorrelationScore.get(item).getCorrelationScore() * decayFactorForScore;
-            resScoreForTime += sortByCreateTime.get(item).getCorrelationScore() * decayFactorForTime;
-            decayFactorForScore *= DECAY_FACTOR_BY_SCORE;
-            decayFactorForTime *= DECAY_FACTOR_BY_TIME;
+        for (int item = 0; item < uidList.size(); item++) {
+            floats[item] = calculateAScoreByScore(searchResultTempBOS, uidList.get(item)) * SCORE_WEIGHT +
+                    calculateAScoreByCreateTime(searchResultTempBOS, uidList.get(item)) * TIME_WEIGHT;
         }
-        floats[floatsIndex] = resScoreForScore * SCORE_WEIGHT + resScoreForTime * TIME_WEIGHT;
-        System.out.println("----------- 分数聚合: " + (System.currentTimeMillis() - uidNum1) + "ms");
+        System.out.println("----------- uid 归 一: " + (System.currentTimeMillis() - uidNum1) + "ms");
 
         long mapMerge = System.currentTimeMillis();
 
@@ -177,6 +145,32 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
 
         System.out.println("blog operator: " + (System.currentTimeMillis() - start) + "ms");
         return result;
+    }
+
+    private Float calculateAScoreByScore(List<SearchResultTempBO> searchResultTempBOS, String uid) {
+        AtomicReference<Float> factor = new AtomicReference<>(1.0f),
+                res = new AtomicReference<>(0.0f);
+        searchResultTempBOS.stream()
+                .filter(item -> item.getUid().equals(uid))
+                .sorted((o1, o2) -> o2.getCorrelationScore().compareTo(o1.getCorrelationScore())).collect(Collectors.toList())
+                .forEach(item -> {
+                    res.updateAndGet(v -> v + item.getCorrelationScore() * factor.get());
+                    factor.updateAndGet(v -> v * DECAY_FACTOR_BY_SCORE);
+                });
+        return res.get();
+    }
+
+    private Float calculateAScoreByCreateTime(List<SearchResultTempBO> searchResultTempBOS, String uid) {
+        AtomicReference<Float> factor = new AtomicReference<>(1.0f),
+                res = new AtomicReference<>(0.0f);
+        searchResultTempBOS.stream()
+                .filter(item -> item.getUid().equals(uid))
+                .sorted((o1, o2) -> o2.getCreateTime().compareTo(o1.getCreateTime())).collect(Collectors.toList())
+                .forEach(item -> {
+                    res.updateAndGet(v -> v + item.getCorrelationScore() * factor.get());
+                    factor.updateAndGet(v -> v * DECAY_FACTOR_BY_TIME);
+                });
+        return res.get();
     }
 
 }

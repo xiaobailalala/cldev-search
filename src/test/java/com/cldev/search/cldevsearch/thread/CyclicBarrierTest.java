@@ -38,6 +38,7 @@ import java.util.concurrent.*;
  */
 public class CyclicBarrierTest implements Runnable {
 
+
     private ExecutorService threadPool = Executors.newFixedThreadPool(10);
 
     private CyclicBarrier cyclicBarrier = new CyclicBarrier(3, this);
