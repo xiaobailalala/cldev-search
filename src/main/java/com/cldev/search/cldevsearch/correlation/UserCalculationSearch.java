@@ -1,0 +1,138 @@
+package com.cldev.search.cldevsearch.correlation;
+
+import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
+import com.cldev.search.cldevsearch.correlation.builder.AddressBoolQueryBuilder;
+import com.cldev.search.cldevsearch.correlation.builder.FansAgeBoolQueryBuilder;
+import com.cldev.search.cldevsearch.correlation.builder.FansNumBoolQueryBuilder;
+import com.cldev.search.cldevsearch.correlation.process.AbstractCalculationBuilder;
+import com.cldev.search.cldevsearch.correlation.process.KolCalculation;
+import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
+ * <p>
+ * code is far away from bug with the animal protecting
+ * <p>
+ * ┏┓　　　┏┓
+ * ┏┛┻━━━┛┻┓
+ * ┃　　　　　　　┃
+ * ┃　　　━　　　┃
+ * ┃　┳┛　┗┳　┃
+ * ┃　　　　　　　┃
+ * ┃　　　┻　　　┃
+ * ┃　　　　　　　┃
+ * ┗━┓　　　┏━┛
+ * 　　┃　　　┃神兽保佑
+ * 　　┃　　　┃代码无BUG！
+ * 　　┃　　　┗━━━┓
+ * 　　┃　　　　　　　┣┓
+ * 　　┃　　　　　　　┏┛
+ * 　　┗┓┓┏━┳┓┏┛
+ * 　　　┃┫┫　┃┫┫
+ * 　　　┗┻┛　┗┻┛
+ *
+ * @author zpx
+ * Build File @date: 2019/9/26 16:53
+ * @version 1.0
+ * @description
+ */
+public class UserCalculationSearch extends AbstractCalculationBuilder implements KolCalculation {
+
+    public UserCalculationSearch(SearchConditionDTO searchConditionDTO) {
+        super(searchConditionDTO);
+    }
+
+    @Override
+    public UserCalculationSearch initSearchCondition() {
+        this.boolQueryBuilder = resolverAndConfirmBoolQueryBuilder(
+                resolverContext(),
+                resolverAddress(),
+                resolverSex(),
+                resolverFansNum(),
+                resolverFansAge()
+        );
+        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder().query(this.boolQueryBuilder).size(1000));
+        return this;
+    }
+
+    protected BoolQueryBuilder resolverContext() {
+        String context = this.searchConditionDTO.getContext();
+        if (!StringUtils.isEmpty(context)) {
+            return this.boolQueryBuilder.must(new MatchQueryBuilder("description", context));
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder resolverAddress() {
+        String[] addresses = this.searchConditionDTO.getAddresses();
+        if (!ObjectUtils.isEmpty(addresses)) {
+            BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(AddressBoolQueryBuilder.class);
+            for (String address : addresses) {
+                boolQueryBuilder = boolQueryBuilder.should(new TermQueryBuilder(address.length() == 7 ? "address" : "province", address));
+            }
+            return this.boolQueryBuilder.must(boolQueryBuilder);
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder resolverSex() {
+        Integer sex = this.searchConditionDTO.getSex();
+        if (!ObjectUtils.isEmpty(sex) && sex != 0) {
+            return this.boolQueryBuilder.must(new TermQueryBuilder("sex", sex));
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder resolverFansNum() {
+        List<SearchConditionDTO.FansNum> fansNum = this.searchConditionDTO.getFansNum();
+        if (!ObjectUtils.isEmpty(fansNum)) {
+            BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(FansNumBoolQueryBuilder.class);
+            for (SearchConditionDTO.FansNum num : fansNum) {
+                boolQueryBuilder = boolQueryBuilder.should(new RangeQueryBuilder("fans").gte(num.from).lt(num.to));
+            }
+            return this.boolQueryBuilder.must(boolQueryBuilder);
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder resolverFansAge() {
+        List<SearchConditionDTO.FansAge> fansAge = searchConditionDTO.getFansAge();
+        if (!ObjectUtils.isEmpty(fansAge)) {
+            BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(FansAgeBoolQueryBuilder.class);
+            for (SearchConditionDTO.FansAge age : fansAge) {
+                boolQueryBuilder = boolQueryBuilder.should(new RangeQueryBuilder("fansAge").gte(age.from).lt(age.to));
+            }
+            return this.boolQueryBuilder.must(boolQueryBuilder);
+        }
+        return null;
+    }
+
+    @Override
+    public List<SearchResultTempBO> getResult(Client client) {
+        SearchHit[] hits = client.search(searchRequest).actionGet().getHits().getHits();
+        List<SearchResultTempBO> searchResultTempBOS = new LinkedList<>();
+        Float[] score = scoreUniformization(Arrays.stream(hits).map(SearchHit::getScore).toArray(Float[]::new));
+        for (int item = 0; item < hits.length; item++) {
+            Map<String, Object> source = hits[item].getSourceAsMap();
+            searchResultTempBOS.add(new SearchResultTempBO(source.get("uid").toString(),
+                    Integer.parseInt(source.get("fans").toString()),
+                    Integer.parseInt(source.get("score").toString()),
+                    3, score[item], null));
+        }
+        return searchResultTempBOS;
+    }
+
+}
