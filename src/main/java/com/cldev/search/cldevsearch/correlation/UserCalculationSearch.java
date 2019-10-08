@@ -4,6 +4,7 @@ import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.correlation.builder.AddressBoolQueryBuilder;
 import com.cldev.search.cldevsearch.correlation.builder.FansAgeBoolQueryBuilder;
 import com.cldev.search.cldevsearch.correlation.builder.FansNumBoolQueryBuilder;
+import com.cldev.search.cldevsearch.correlation.builder.InterestBoolQueryBuilder;
 import com.cldev.search.cldevsearch.correlation.process.AbstractCalculationBuilder;
 import com.cldev.search.cldevsearch.correlation.process.KolCalculation;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
@@ -18,8 +19,10 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -62,9 +65,12 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
                 resolverAddress(),
                 resolverSex(),
                 resolverFansNum(),
-                resolverFansAge()
+                resolverFansAge(),
+                resolverInterest()
         );
-        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder().query(this.boolQueryBuilder).size(1000));
+        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder()
+                .query(this.boolQueryBuilder)
+                .size(1000));
         return this;
     }
 
@@ -98,7 +104,7 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
 
     protected BoolQueryBuilder resolverFansNum() {
         List<SearchConditionDTO.FansNum> fansNum = this.searchConditionDTO.getFansNum();
-        if (!ObjectUtils.isEmpty(fansNum)) {
+        if (!ObjectUtils.isEmpty(fansNum) && fansNum.size() != 0) {
             BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(FansNumBoolQueryBuilder.class);
             for (SearchConditionDTO.FansNum num : fansNum) {
                 boolQueryBuilder = boolQueryBuilder.should(new RangeQueryBuilder("fans").gte(num.from).lt(num.to));
@@ -110,10 +116,22 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
 
     protected BoolQueryBuilder resolverFansAge() {
         List<SearchConditionDTO.FansAge> fansAge = searchConditionDTO.getFansAge();
-        if (!ObjectUtils.isEmpty(fansAge)) {
+        if (!ObjectUtils.isEmpty(fansAge) && fansAge.size() != 0) {
             BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(FansAgeBoolQueryBuilder.class);
             for (SearchConditionDTO.FansAge age : fansAge) {
                 boolQueryBuilder = boolQueryBuilder.should(new RangeQueryBuilder("fansAge").gte(age.from).lt(age.to));
+            }
+            return this.boolQueryBuilder.must(boolQueryBuilder);
+        }
+        return null;
+    }
+
+    protected BoolQueryBuilder resolverInterest() {
+        List<Integer> interest = searchConditionDTO.getInterest();
+        if (!ObjectUtils.isEmpty(interest) && interest.size() != 0) {
+            BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(InterestBoolQueryBuilder.class);
+            for (Integer integer : interest) {
+                boolQueryBuilder = boolQueryBuilder.should(new TermQueryBuilder("label", integer));
             }
             return this.boolQueryBuilder.must(boolQueryBuilder);
         }
@@ -129,8 +147,10 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
             Map<String, Object> source = hits[item].getSourceAsMap();
             searchResultTempBOS.add(new SearchResultTempBO(source.get("uid").toString(),
                     Integer.parseInt(source.get("fans").toString()),
-                    Integer.parseInt(source.get("score").toString()),
-                    3, score[item], null));
+                    Float.parseFloat(source.get("score").toString()),
+                    score[item], null, source.get("name").toString(),
+                    (List<Integer>) source.get("label"), source.get("address").toString(),
+                    source.get("province").toString(), Integer.parseInt(source.get("sex").toString())));
         }
         return searchResultTempBOS;
     }

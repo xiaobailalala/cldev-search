@@ -50,7 +50,7 @@ public class SearchTest {
     @Test
     public void searchFromSsDb() throws Exception {
         SSDB ssdb = new SSDB("192.168.2.55", 8889);
-        byte[] userinfos = ssdb.hget("userinfo", "2241541644");
+        byte[] userinfos = ssdb.hget("userinfo", "2150694340");
         String userInfo = new String(userinfos);
         System.out.println(userInfo);
     }

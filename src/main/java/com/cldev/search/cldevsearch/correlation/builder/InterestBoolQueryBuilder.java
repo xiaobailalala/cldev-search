@@ -1,9 +1,6 @@
-package com.cldev.search.cldevsearch.vo;
+package com.cldev.search.cldevsearch.correlation.builder;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.Accessors;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -29,18 +26,10 @@ import lombok.experimental.Accessors;
  * 　　　┗┻┛　┗┻┛
  *
  * @author zpx
- * Build File @date: 2019/9/25 14:38
+ * Build File @date: 2019/10/8 14:15
  * @version 1.0
  * @description
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Accessors(chain = true)
-public class SearchResVO {
-
-    private String uid;
-    private Integer wbFans;
-    private Float score;
+public class InterestBoolQueryBuilder extends BoolQueryBuilder {
 
 }

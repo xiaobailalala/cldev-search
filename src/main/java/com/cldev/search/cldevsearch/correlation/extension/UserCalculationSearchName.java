@@ -47,7 +47,9 @@ public class UserCalculationSearchName extends UserCalculationSearch {
         this.boolQueryBuilder = resolverAndConfirmBoolQueryBuilder(
                 resolverContext()
         );
-        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder().query(this.boolQueryBuilder).size(1000));
+        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder()
+                .query(this.boolQueryBuilder)
+                .size(1000));
         return this;
     }
 

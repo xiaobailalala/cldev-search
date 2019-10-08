@@ -18,8 +18,9 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static com.cldev.search.cldevsearch.correlation.weight.CalculationSearchWeight.*;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -77,34 +78,36 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         // 在es中获取博文检索信息
         SearchHit[] hits = client.search(searchRequest).actionGet().getHits().getHits();
         long start = System.currentTimeMillis();
-        // 将获取到的信息放入List 和 Map
+        // 将获取到的信息放入List
         List<SearchResultTempBO> searchResultTempBos = new LinkedList<>();
-        Map<String, SearchResultTempBO> searchResultTempBoMap = new HashMap<>(7000);
         for (SearchHit hit : hits) {
             Map<String, Object> source = hit.getSourceAsMap();
-            SearchResultTempBO searchResultTempBo = new SearchResultTempBO(source.get("uid").toString(), null, null,
-                    3, hit.getScore(), source.get("time").toString());
-            searchResultTempBos.add(searchResultTempBo);
-            searchResultTempBoMap.put(source.get("uid").toString(), searchResultTempBo);
+            searchResultTempBos.add(new SearchResultTempBO(source.get("uid").toString(), null, null,
+                    hit.getScore(), source.get("time").toString(), null, null, null, null, null));
         }
         // 对结果集 List 根据 uid 去重，得到uid集合
         List<String> uidList = searchResultTempBos.stream()
                 .map(SearchResVO::getUid)
                 .distinct()
+                .sorted(String::compareTo)
                 .collect(Collectors.toCollection(LinkedList::new));
         // 根据uid集合去es的用户索引中获取用户信息集合
         long startUser = System.currentTimeMillis();
         ActionFuture<SearchResponse> esUidInfo = client.search(new SearchRequest("wb-user").source(new SearchSourceBuilder()
-                .query(new TermsQueryBuilder("uid", uidList))));
+                .query(new TermsQueryBuilder("uid", uidList)).size(uidList.size())));
         System.out.println("----------- search user by uid: " + (System.currentTimeMillis() - startUser) + "ms");
         SearchHit[] infoHit = esUidInfo.actionGet().getHits().getHits();
         // 将用户信息存入 Map
-        Map<String, SearchResVO> searchResVoMap = new HashMap<>(1400);
+        Map<String, SearchResultTempBO> searchResVoMap = new HashMap<>(1400);
         for (SearchHit documentFields : infoHit) {
             Map<String, Object> source = documentFields.getSourceAsMap();
             searchResVoMap.put(source.get("uid").toString(),
-                    new SearchResVO().setScore(Integer.parseInt(source.get("score").toString()))
-                            .setWbFans(Integer.parseInt(source.get("fans").toString())));
+                    new SearchResultTempBO(source.get("uid").toString(),
+                            Integer.parseInt(source.get("fans").toString()),
+                            Float.parseFloat(source.get("score").toString()),
+                            null, null, null,
+                            (List<Integer>) source.get("label"), source.get("address").toString(),
+                            source.get("province").toString(), Integer.parseInt(source.get("sex").toString())));
         }
         List<SearchResultTempBO> result = new LinkedList<>();
         // 对博文结果集进行合并、分权操作
@@ -129,8 +132,8 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         for (int item = 0; item < sortByCorrelationScore.size(); item++) {
             if (!currentUid.equals(sortByCorrelationScore.get(item).getUid())) {
                 currentUid = sortByCorrelationScore.get(item).getUid();
-                floats[sortListIndex++] = resForCorrelationScore * CalculationSearchWeight.SCORE_WEIGHT +
-                        resForCreateTime * CalculationSearchWeight.TIME_WEIGHT;
+                floats[sortListIndex++] = resForCorrelationScore * SCORE_WEIGHT +
+                        resForCreateTime * TIME_WEIGHT;
                 factorForCorrelationScore = 1.0f;
                 factorForCreateTime = 1.0f;
                 resForCorrelationScore = 0.0f;
@@ -138,23 +141,22 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
             }
             resForCorrelationScore += sortByCorrelationScore.get(item).getCorrelationScore() * factorForCorrelationScore;
             resForCreateTime += sortByCreateTime.get(item).getCorrelationScore() * factorForCreateTime;
-            factorForCorrelationScore *= CalculationSearchWeight.DECAY_FACTOR_BY_SCORE;
-            factorForCreateTime *= CalculationSearchWeight.DECAY_FACTOR_BY_TIME;
+            factorForCorrelationScore *= DECAY_FACTOR_BY_SCORE;
+            factorForCreateTime *= DECAY_FACTOR_BY_TIME;
         }
         if (sortByCorrelationScore.size() != 0) {
-            floats[sortListIndex] = resForCorrelationScore * CalculationSearchWeight.SCORE_WEIGHT +
-                    resForCreateTime * CalculationSearchWeight.TIME_WEIGHT;
+            floats[sortListIndex] = resForCorrelationScore * SCORE_WEIGHT +
+                    resForCreateTime * TIME_WEIGHT;
         }
         System.out.println("----------- uid 归 一: " + (System.currentTimeMillis() - uidNum1) + "ms");
         long mapMerge = System.currentTimeMillis();
         floats = scoreUniformization(floats);
         for (int item = 0; item < uidList.size(); item++) {
-            SearchResultTempBO tempBo = searchResultTempBoMap.get(uidList.get(item));
-            SearchResVO searchResVO = searchResVoMap.get(uidList.get(item));
+            SearchResultTempBO searchResVO = searchResVoMap.get(uidList.get(item));
             if (!ObjectUtils.isEmpty(searchResVO)) {
                 result.add(new SearchResultTempBO(uidList.get(item), searchResVO.getWbFans(),
-                        searchResVO.getScore(), tempBo.getLabelCount(),
-                        floats[item], null));
+                        searchResVO.getScore(), floats[item], null, null, searchResVO.getLabels(),
+                        searchResVO.getAddress(), searchResVO.getProvince(), searchResVO.getSex()));
             }
         }
         System.out.println("----------- map Merge: " + (System.currentTimeMillis() - mapMerge) + "ms");

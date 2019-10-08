@@ -125,6 +125,19 @@ public class SearchConditionDTO {
         return fansNums;
     }
 
+    public List<Integer> getInterest() {
+        LinkedList<Integer> integers = new LinkedList<>();
+        if (!ObjectUtils.isEmpty(interest)) {
+            for (String item : interest) {
+                EnumInterest enumInterest = EnumInterest.getInterest(item);
+                if (!ObjectUtils.isEmpty(enumInterest)) {
+                    integers.add(enumInterest.code);
+                }
+            }
+        }
+        return integers;
+    }
+
     @Getter
     private enum EnumFansAge {
 
@@ -229,6 +242,203 @@ public class SearchConditionDTO {
             this.from = from;
             this.to = to;
         }
+    }
+
+    @Getter
+    private enum EnumInterest {
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_1("日用百货", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_2("互联网", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_3("美食", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_4("汽车", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_5("家居", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_6("数码", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_7("房地产", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_8("工农贸易", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_9("生活服务", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_10("时尚美妆", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_11("机构场所", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_12("健康医疗", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_13("运动健身", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_14("商务服务", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_15("婚庆服务", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_16("三农", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_17("财经", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_18("读书", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_19("教育", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_20("摄影", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_21("母婴", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_22("娱乐", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_23("媒体", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_24("音乐", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_25("游戏", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_26("旅游", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_27("法律", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_28("职场", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_29("公益", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_30("电影", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_31("海外", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_32("萌宠", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_33("收藏", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_34("家电办公", 0),
+
+        /**
+         * For filtering areas of interest when searching
+         */
+        INTEREST_35("动漫", 0);
+
+        private String interestName;
+        private Integer code;
+
+        EnumInterest(String interestName, Integer code) {
+            this.interestName = interestName;
+            this.code = code;
+        }
+
+        static EnumInterest getInterest(String interestName) {
+            for (EnumInterest interest : EnumInterest.values()) {
+                if (interestName.equals(interest.interestName)) {
+                    return interest;
+                }
+            }
+            return null;
+        }
+
     }
 
 }

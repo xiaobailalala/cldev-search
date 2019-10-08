@@ -46,11 +46,6 @@ import java.util.*;
 public class SearchResultTempBO extends SearchResVO implements Comparable<SearchResultTempBO> {
 
     /**
-     * The number of people tags, on the results of the order of impact
-     */
-    private Integer labelCount;
-
-    /**
      * Elasticsearch retrieves a correlation score that is obtained when there are only filtering conditions {@code null}
      */
     private Float correlationScore;
@@ -60,20 +55,49 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
      */
     private String createTime;
 
-    public SearchResultTempBO(String uid, Integer wbFans, Integer score, Integer labelCount, Float correlationScore, String createTime) {
+    /**
+     * User name information stored in Elasticsearch
+     */
+    private String name;
+
+    /**
+     * Labels information stored in Elasticsearch
+     */
+    private List<Integer> labels;
+
+    /**
+     * Address information stored in Elasticsearch
+     */
+    private String address;
+
+    /**
+     * Province information stored in Elasticsearch
+     */
+    private String province;
+
+    /**
+     * Sex information stored in Elasticsearch
+     */
+    private Integer sex;
+
+    public SearchResultTempBO(String uid, Integer wbFans, Float score, Float correlationScore, String createTime, String name, List<Integer> labels, String address, String province, Integer sex) {
         super(uid, wbFans, score);
-        this.labelCount = labelCount;
         this.correlationScore = correlationScore;
         this.createTime = createTime;
+        this.name = name;
+        this.labels = labels;
+        this.address = address;
+        this.province = province;
+        this.sex = sex;
     }
 
     @Override
     public int compareTo(SearchResultTempBO o) {
-        if (o.getLabelCount() > this.getLabelCount()) {
-            return 1;
-        } else if (o.getLabelCount() < this.getLabelCount()) {
-            return -1;
-        } else {
+//        if (o.getLabelCount() > this.getLabelCount()) {
+//            return 1;
+//        } else if (o.getLabelCount() < this.getLabelCount()) {
+//            return -1;
+//        } else {
             if (o.getCorrelationScore() > this.getCorrelationScore()) {
                 return 1;
             } else if (o.getCorrelationScore() < this.getCorrelationScore()) {
@@ -81,7 +105,7 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
             } else {
                 return 0;
             }
-        }
+//        }
     }
 
 }

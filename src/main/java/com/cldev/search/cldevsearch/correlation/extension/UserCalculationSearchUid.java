@@ -53,9 +53,11 @@ public class UserCalculationSearchUid extends UserCalculationSearch {
                 resolverAddress(),
                 resolverSex(),
                 resolverFansNum(),
-                resolverFansAge()
+                resolverFansAge(),
+                resolverInterest()
         );
-        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder().query(this.boolQueryBuilder));
+        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder()
+                .query(this.boolQueryBuilder));
         return this;
     }
 

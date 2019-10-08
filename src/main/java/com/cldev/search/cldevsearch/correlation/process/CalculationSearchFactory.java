@@ -8,6 +8,7 @@ import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchN
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchUid;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.util.CommonCallBack;
+import com.cldev.search.cldevsearch.util.SimilarityUtil;
 import com.cldev.search.cldevsearch.vo.SearchResVO;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.elasticsearch.client.Client;
@@ -17,6 +18,8 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+
+import static com.cldev.search.cldevsearch.correlation.weight.CalculationSearchWeight.*;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -48,10 +51,6 @@ import java.util.stream.Collectors;
  */
 public class CalculationSearchFactory implements Runnable {
 
-    private final static float USER_SCORE_WEIGHT = 0.6f;
-
-    private final static float BLOG_SCORE_WEIGHT = 0.4f;
-
     private ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("thread-call-runner-%d").build();
 
     private ExecutorService executorService = new ThreadPoolExecutor(10, 10, 0L,
@@ -69,7 +68,7 @@ public class CalculationSearchFactory implements Runnable {
 
     private ConcurrentLinkedQueue<SearchResultTempBO> userNameIndicesResult = new ConcurrentLinkedQueue<>();
 
-    private List<SearchResVO> resultUid = new LinkedList<>();
+    private List<SearchResultTempBO> resultUid = new LinkedList<>();
 
     private CalculationSearchFactory() {
     }
@@ -109,9 +108,11 @@ public class CalculationSearchFactory implements Runnable {
             if (isCondition()) {
                 this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
                 this.kolCalculationResultProcess(() -> {
+                    long conditionStart = System.currentTimeMillis();
                     List<String> uidList = new UserCalculationSearchUid(this.condition).initSearchCondition().getResult(this.client).stream()
                             .map(SearchResVO::getUid).collect(Collectors.toList());
                     this.blogIndicesResult.addAll(new BlogCalculationSearchUidList(this.condition).setUidList(uidList).initSearchCondition().getResult(this.client));
+                    System.out.println("condition time: " + (System.currentTimeMillis() - conditionStart) + "ms");
                 });
             } else {
                 this.kolCalculationResultProcess(() -> {
@@ -128,7 +129,7 @@ public class CalculationSearchFactory implements Runnable {
         }
     }
 
-    public List<SearchResVO> searchEnd() {
+    public List<SearchResultTempBO> searchEnd() {
         return this.resultUid;
     }
 
@@ -141,16 +142,16 @@ public class CalculationSearchFactory implements Runnable {
         if (!ObjectUtils.isEmpty(condition.getSex()) && condition.getSex() != 0) {
             isCondition++;
         }
-        if (!ObjectUtils.isEmpty(condition.getAddresses())) {
+        if (!ObjectUtils.isEmpty(condition.getAddresses()) && condition.getAddresses().length != 0) {
             isCondition++;
         }
-        if (!ObjectUtils.isEmpty(condition.getFansAge())) {
+        if (!ObjectUtils.isEmpty(condition.getFansAge()) && condition.getFansAge().size() != 0) {
             isCondition++;
         }
-        if (!ObjectUtils.isEmpty(condition.getInterest())) {
+        if (!ObjectUtils.isEmpty(condition.getInterest()) && condition.getInterest().size() != 0) {
             isCondition++;
         }
-        if (!ObjectUtils.isEmpty(condition.getFansNum())) {
+        if (!ObjectUtils.isEmpty(condition.getFansNum()) && condition.getFansNum().size() != 0) {
             isCondition++;
         }
         return isCondition != 0;
@@ -167,9 +168,14 @@ public class CalculationSearchFactory implements Runnable {
             List<SearchResultTempBO> userResult = new LinkedList<>(this.userIndicesResult);
             List<SearchResultTempBO> blogResult = new LinkedList<>(this.blogIndicesResult);
             Map<String, SearchResultTempBO> userNameResultMap = new HashMap<>(500);
+            long similarityStart = System.currentTimeMillis();
+            /* 根据用户名进行字符串相似度排除 */
             for (SearchResultTempBO userName : userNameResult) {
-                userNameResultMap.put(userName.getUid(), userName);
+                if (SimilarityUtil.sim(userName.getName(), condition.getContext()) >= USERNAME_SIMILARITY) {
+                    userNameResultMap.put(userName.getUid(), userName);
+                }
             }
+            System.out.println("similarity time : " + (System.currentTimeMillis() - similarityStart));
             Map<String, SearchResultTempBO> userResultMap = new HashMap<>(1000);
             for (SearchResultTempBO user : userResult) {
                 userResultMap.put(user.getUid(), user);
@@ -189,11 +195,38 @@ public class CalculationSearchFactory implements Runnable {
                 resultUserName.add(stringSearchResultTempBOEntry.getValue());
             }
             Collections.sort(resultUserName);
-            this.resultUid.addAll(resultUserName);
+            List<SearchResultTempBO> resultTemp = new LinkedList<>(resultUserName);
             Collections.sort(blogResult);
-            this.resultUid.addAll(blogResult);
+            resultTemp.addAll(blogResult);
+
         }
         System.out.println("result operator: " + (System.currentTimeMillis() - start) + "ms");
+    }
+
+    private List<SearchResVO> filterSearchResult(List<SearchResultTempBO> resultTemp) {
+        List<SearchResVO> searchResult = new LinkedList<>();
+        if (isCondition()) {
+            for (SearchResultTempBO searchResultTemp : resultTemp) {
+                searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
+            }
+            return searchResult;
+        }
+        for (SearchResultTempBO searchResultTemp : resultTemp) {
+            for (String address : this.condition.getAddresses()) {
+                if (address.length() == 7 ? searchResultTemp.getAddress().equals(address) : searchResultTemp.getProvince().equals(address)) {
+                    searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
+                }
+            }
+            for (SearchConditionDTO.FansNum fansNum : this.condition.getFansNum()) {
+                if (searchResultTemp.getWbFans() > fansNum.from && searchResultTemp.getWbFans() <= fansNum.to) {
+                    searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
+                }
+            }
+            if (!ObjectUtils.isEmpty(condition.getSex()) && condition.getSex() != 0 && searchResultTemp.getSex().equals(condition.getSex())) {
+                searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
+            }
+        }
+        return null;
     }
 
 }

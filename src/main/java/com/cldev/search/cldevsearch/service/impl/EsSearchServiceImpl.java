@@ -68,7 +68,8 @@ public class EsSearchServiceImpl implements EsSearchService {
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();
         }
-        return calculationSearchFactory.searchEnd();
+//        return calculationSearchFactory.searchEnd();
+        return null;
     }
 
 
