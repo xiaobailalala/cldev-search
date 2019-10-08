@@ -5,6 +5,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.junit.Test;
 import org.springframework.util.StringUtils;
+import redis.clients.jedis.Jedis;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -13,7 +14,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import redis.clients.jedis.Jedis;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -47,7 +47,7 @@ public class FileTest {
 
     @Test
     public void readCsv() {
-        File csvFile = new File("/Users/zhaopeixian/Office/officeFile/res.csv");
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\res.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "type", "label1", "label2", "label3", "labelw")
                      .withSkipHeaderRecord(true))) {
@@ -99,7 +99,7 @@ public class FileTest {
     public void insertRedis() throws IOException {
         Jedis jedis = new Jedis("192.168.2.11", 6399);
         jedis.auth("cldev");
-        File csvFile = new File("/Users/zhaopeixian/Office/officeFile/res.csv");
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\res.csv");
         File mappingFile = new File("label-mapping");
         BufferedReader reader = new BufferedReader(new FileReader(mappingFile));
         String tempString;
