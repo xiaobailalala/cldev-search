@@ -3,9 +3,7 @@ package com.cldev.search.cldevsearch.correlation.process;
 import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
-import com.cldev.search.cldevsearch.correlation.extension.BlogCalculationSearchUidList;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
-import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchUid;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.util.CommonCallBack;
 import com.cldev.search.cldevsearch.util.SimilarityUtil;
@@ -17,7 +15,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 import static com.cldev.search.cldevsearch.correlation.weight.CalculationSearchWeight.*;
 
@@ -68,7 +65,7 @@ public class CalculationSearchFactory implements Runnable {
 
     private ConcurrentLinkedQueue<SearchResultTempBO> userNameIndicesResult = new ConcurrentLinkedQueue<>();
 
-    private List<SearchResultTempBO> resultUid = new LinkedList<>();
+    private List<SearchResVO> resultUid = new LinkedList<>();
 
     private CalculationSearchFactory() {
     }
@@ -105,16 +102,16 @@ public class CalculationSearchFactory implements Runnable {
                 this.userNameIndicesResult.addAll(new UserCalculationSearchName(this.condition).initSearchCondition().getResult(this.client));
                 System.out.println("search name: " + (System.currentTimeMillis() - start) + "ms");
             });
-            if (isCondition()) {
-                this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
-                this.kolCalculationResultProcess(() -> {
-                    long conditionStart = System.currentTimeMillis();
-                    List<String> uidList = new UserCalculationSearchUid(this.condition).initSearchCondition().getResult(this.client).stream()
-                            .map(SearchResVO::getUid).collect(Collectors.toList());
-                    this.blogIndicesResult.addAll(new BlogCalculationSearchUidList(this.condition).setUidList(uidList).initSearchCondition().getResult(this.client));
-                    System.out.println("condition time: " + (System.currentTimeMillis() - conditionStart) + "ms");
-                });
-            } else {
+//            if (isCondition()) {
+//                this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
+//                this.kolCalculationResultProcess(() -> {
+//                    long conditionStart = System.currentTimeMillis();
+//                    List<String> uidList = new UserCalculationSearchUid(this.condition).initSearchCondition().getResult(this.client).stream()
+//                            .map(SearchResVO::getUid).collect(Collectors.toList());
+//                    this.blogIndicesResult.addAll(new BlogCalculationSearchUidList(this.condition).setUidList(uidList).initSearchCondition().getResult(this.client));
+//                    System.out.println("condition time: " + (System.currentTimeMillis() - conditionStart) + "ms");
+//                });
+//            } else {
                 this.kolCalculationResultProcess(() -> {
                     long start = System.currentTimeMillis();
                     this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client));
@@ -125,11 +122,11 @@ public class CalculationSearchFactory implements Runnable {
                     this.blogIndicesResult.addAll(new BlogCalculationSearch(this.condition).initSearchCondition().getResult(this.client));
                     System.out.println("search blog: " + (System.currentTimeMillis() - start) + "ms");
                 });
-            }
+//            }
         }
     }
 
-    public List<SearchResultTempBO> searchEnd() {
+    public List<SearchResVO> searchEnd() {
         return this.resultUid;
     }
 
@@ -191,42 +188,65 @@ public class CalculationSearchFactory implements Runnable {
                 }
             }
             List<SearchResultTempBO> resultUserName = new LinkedList<>();
-            for (Map.Entry<String, SearchResultTempBO> stringSearchResultTempBOEntry : userNameResultMap.entrySet()) {
-                resultUserName.add(stringSearchResultTempBOEntry.getValue());
+            for (Map.Entry<String, SearchResultTempBO> stringSearchResultTempBoEntry : userNameResultMap.entrySet()) {
+                resultUserName.add(stringSearchResultTempBoEntry.getValue());
             }
             Collections.sort(resultUserName);
             List<SearchResultTempBO> resultTemp = new LinkedList<>(resultUserName);
             Collections.sort(blogResult);
             resultTemp.addAll(blogResult);
-
+            this.resultUid.addAll(filterSearchResult(resultTemp));
         }
         System.out.println("result operator: " + (System.currentTimeMillis() - start) + "ms");
     }
 
     private List<SearchResVO> filterSearchResult(List<SearchResultTempBO> resultTemp) {
         List<SearchResVO> searchResult = new LinkedList<>();
-        if (isCondition()) {
-            for (SearchResultTempBO searchResultTemp : resultTemp) {
-                searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
-            }
-            return searchResult;
-        }
-        for (SearchResultTempBO searchResultTemp : resultTemp) {
-            for (String address : this.condition.getAddresses()) {
-                if (address.length() == 7 ? searchResultTemp.getAddress().equals(address) : searchResultTemp.getProvince().equals(address)) {
-                    searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
-                }
-            }
-            for (SearchConditionDTO.FansNum fansNum : this.condition.getFansNum()) {
-                if (searchResultTemp.getWbFans() > fansNum.from && searchResultTemp.getWbFans() <= fansNum.to) {
-                    searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
-                }
-            }
-            if (!ObjectUtils.isEmpty(condition.getSex()) && condition.getSex() != 0 && searchResultTemp.getSex().equals(condition.getSex())) {
-                searchResult.add(new SearchResVO().setUid(searchResultTemp.getUid()).setWbFans(searchResultTemp.getWbFans()).setScore(searchResultTemp.getScore()));
+        for (SearchResultTempBO item : resultTemp) {
+            if (resolverAddress(item.getAddress()) && resolverSex(item.getSex()) && resolverFansNum(item.getWbFans()) && resolverInterest(item.getLabels())) {
+                searchResult.add(item);
             }
         }
-        return null;
+        return searchResult;
+    }
+
+    private boolean resolverAddress(String address) {
+        if (ObjectUtils.isEmpty(this.condition.getAddresses()) || this.condition.getAddresses().length == 0) {
+            return true;
+        }
+        return Arrays.asList(this.condition.getAddresses()).contains(address);
+    }
+
+    private boolean resolverSex(Integer sex) {
+        if (ObjectUtils.isEmpty(this.condition.getSex()) || this.condition.getSex() == 0) {
+            return true;
+        }
+        return this.condition.getSex().equals(sex);
+    }
+
+    private boolean resolverFansNum(Integer fans) {
+        if (this.condition.getFansNum().size() == 0) {
+            return true;
+        }
+        for (SearchConditionDTO.FansNum fansNum : this.condition.getFansNum()) {
+            if (fans > fansNum.from && fans <= fansNum.to) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean resolverInterest(List<Integer> interest) {
+        if (this.condition.getInterest().size() == 0) {
+            return true;
+        }
+        Set<Integer> tempSet = new HashSet<>(interest);
+        for (Integer item : this.condition.getInterest()) {
+            if (tempSet.contains(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

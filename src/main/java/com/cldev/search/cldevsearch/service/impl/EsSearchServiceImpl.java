@@ -4,20 +4,10 @@ import com.cldev.search.cldevsearch.correlation.process.CalculationSearchFactory
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.service.EsSearchService;
 import com.cldev.search.cldevsearch.vo.SearchResVO;
-import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.index.query.*;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 
@@ -68,8 +58,7 @@ public class EsSearchServiceImpl implements EsSearchService {
         } catch (InterruptedException | BrokenBarrierException e) {
             e.printStackTrace();
         }
-//        return calculationSearchFactory.searchEnd();
-        return null;
+        return calculationSearchFactory.searchEnd();
     }
 
 
