@@ -1,6 +1,6 @@
 package com.cldev.search.cldevsearch.process.kol;
 
-import com.cldev.search.cldevsearch.common.AbstractHostLoadProcess;
+import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
 
 import java.util.Arrays;
 import java.util.List;
@@ -39,31 +39,35 @@ public class Host50KolLoadProcess extends AbstractHostLoadProcess {
 
     private List<CsvMapping> csvMappings = Arrays.asList(
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_63.csv").setIndices("wb-art-" + dateToStamp("2016-04-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_63.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_64.csv").setIndices("wb-art-" + dateToStamp("2016-04-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_64.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_65.csv").setIndices("wb-art-" + dateToStamp("2016-04-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_65.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_66.csv").setIndices("wb-art-" + dateToStamp("2016-04-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_66.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_67.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_67.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_68.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_68.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_69.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_69.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_70.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_70.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_71.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_71.csv").setIndices("wb-art-" + dateToStamp("2016-06-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_72.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_72.csv").setIndices("wb-art-" + dateToStamp("2016-07-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_73.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_5.csv").setIndices("wb-art-" + dateToStamp("2016-07-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_74.csv").setIndices("wb-art-" + dateToStamp("2016-05-01")),
-            //3608495
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_75.csv").setIndices("wb-art-" + dateToStamp("2017-01-01"))
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_6.csv").setIndices("wb-art-" + dateToStamp("2016-07-01")),
+            //6000000
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_7.csv").setIndices("wb-art-" + dateToStamp("2016-07-01")),
+            //6000000
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_8.csv").setIndices("wb-art-" + dateToStamp("2016-07-01")),
+            //6000000
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_9.csv").setIndices("wb-art-" + dateToStamp("2016-07-01"))
     );
 
     @Override
@@ -74,8 +78,8 @@ public class Host50KolLoadProcess extends AbstractHostLoadProcess {
     @Override
     public void loadData() {
         super.loadData(Arrays.asList(
-                csvMappings.subList(0, 7),
-                csvMappings.subList(7, 13)
+                csvMappings.subList(0, 8),
+                csvMappings.subList(8, 15)
         ));
     }
 

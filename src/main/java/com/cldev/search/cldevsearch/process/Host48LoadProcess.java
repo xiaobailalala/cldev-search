@@ -1,6 +1,6 @@
 package com.cldev.search.cldevsearch.process;
 
-import com.cldev.search.cldevsearch.common.AbstractHostLoadProcess;
+import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
 
 import java.util.Arrays;
 import java.util.List;

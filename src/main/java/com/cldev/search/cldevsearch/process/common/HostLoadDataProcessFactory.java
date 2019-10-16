@@ -1,4 +1,4 @@
-package com.cldev.search.cldevsearch.common;
+package com.cldev.search.cldevsearch.process.common;
 
 import com.cldev.search.cldevsearch.util.ProcessUtil;
 
@@ -60,7 +60,6 @@ public class HostLoadDataProcessFactory {
     private AbstractHostLoadProcess hostProcess(String processName) {
         String environmentName = "os.name";
         if (ADAPTATION_ENVIRONMENT.equals(System.getProperties().getProperty(environmentName))) {
-            String hostNum = generatorHostNum();
             try {
                 Class<?> clazz = Class.forName(processName);
                 Constructor<?> constructor = clazz.getConstructor();
@@ -73,7 +72,11 @@ public class HostLoadDataProcessFactory {
     }
 
     private String generatorHostNum() {
-        return ProcessUtil.executeCmd(HOST_NUM_CMD);
+        String environmentName = "os.name";
+        if (ADAPTATION_ENVIRONMENT.equals(System.getProperties().getProperty(environmentName))) {
+            return ProcessUtil.executeCmd(HOST_NUM_CMD);
+        }
+        return null;
     }
 
 }

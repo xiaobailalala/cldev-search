@@ -1,7 +1,8 @@
-package com.cldev.search.cldevsearch.common;
+package com.cldev.search.cldevsearch.process.common;
 
 
 import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
+import com.cldev.search.cldevsearch.util.CommonUtil;
 import com.cldev.search.cldevsearch.util.ProcessUtil;
 import com.cldev.search.cldevsearch.util.SpringContextUtil;
 import lombok.Data;
@@ -54,18 +55,7 @@ import java.util.Objects;
 public abstract class AbstractHostLoadProcess {
 
     protected String dateToStamp(String time) {
-        String res;
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date date;
-        try {
-            date = simpleDateFormat.parse(time + " 00:00:00");
-            long ts = date.getTime();
-            res = String.valueOf(ts);
-            return res;
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return CommonUtil.dateToStamp(time);
     }
 
     /**

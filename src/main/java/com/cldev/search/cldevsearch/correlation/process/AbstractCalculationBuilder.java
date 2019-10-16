@@ -1,21 +1,16 @@
 package com.cldev.search.cldevsearch.correlation.process;
 
-import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
+import com.cldev.search.cldevsearch.config.CalculationSearchWeightConfig;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
+import com.cldev.search.cldevsearch.util.CommonUtil;
+import com.cldev.search.cldevsearch.util.SpringContextUtil;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.SearchHit;
 import org.springframework.util.ObjectUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -50,10 +45,16 @@ public abstract class AbstractCalculationBuilder {
     protected BoolQueryBuilder boolQueryBuilder;
     protected SearchRequest searchRequest;
     protected SearchConditionDTO searchConditionDTO;
+    protected StringBuilder searchLogInfo;
 
     protected AbstractCalculationBuilder(SearchConditionDTO searchConditionDTO) {
         this.searchConditionDTO = searchConditionDTO;
         this.boolQueryBuilder = new BoolQueryBuilder();
+        this.searchLogInfo = new StringBuilder();
+    }
+
+    protected String getSearchLogInfo() {
+        return this.searchLogInfo.toString();
     }
 
     protected BoolQueryBuilder childBoolQueryBuilder(Class<? extends BoolQueryBuilder> bool) {
@@ -74,7 +75,7 @@ public abstract class AbstractCalculationBuilder {
         return boolQueryBuilder;
     }
 
-    protected BoolQueryBuilder resolverAndConfirmBoolQueryBuilder(BoolQueryBuilder ...boolQueryBuilders) {
+    protected BoolQueryBuilder resolverAndConfirmBoolQueryBuilder(BoolQueryBuilder... boolQueryBuilders) {
         for (BoolQueryBuilder queryBuilder : boolQueryBuilders) {
             if (!ObjectUtils.isEmpty(queryBuilder)) {
                 boolQueryBuilder = queryBuilder;
@@ -83,15 +84,8 @@ public abstract class AbstractCalculationBuilder {
         return boolQueryBuilder;
     }
 
-    protected Float[] scoreUniformization(Float[] score) {
-        Float[] temp = new Float[score.length];
-        System.arraycopy(score, 0, temp, 0, score.length);
-        Arrays.sort(score);
-        Float[] result = new Float[score.length];
-        for (int item = 0; item < score.length; item++) {
-            result[item] = (temp[item] - score[0]) / (score[score.length - 1] - score[0]);
-        }
-        return result;
+    protected Float[] scoreNormalization(Float[] score) {
+        return CommonUtil.scoreNormalization(score);
     }
 
 }

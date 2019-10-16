@@ -24,6 +24,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
+
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
  * <p>
@@ -70,7 +72,7 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
         );
         this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder()
                 .query(this.boolQueryBuilder)
-                .size(1000));
+                .size(weightConfig().getUserResultSize()));
         return this;
     }
 
@@ -83,7 +85,7 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
     }
 
     protected BoolQueryBuilder resolverAddress() {
-        String[] addresses = this.searchConditionDTO.getAddresses();
+        String[] addresses = this.searchConditionDTO.getAddress();
         if (!ObjectUtils.isEmpty(addresses)) {
             BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(AddressBoolQueryBuilder.class);
             for (String address : addresses) {
@@ -139,13 +141,18 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
     }
 
     @Override
+    @SuppressWarnings("all")
     public List<SearchResultTempBO> getResult(Client client) {
+        long search = System.currentTimeMillis();
         SearchHit[] hits = client.search(searchRequest).actionGet().getHits().getHits();
+        this.searchLogInfo.append("------ The search : ").append(System.currentTimeMillis() - search).append("ms\n");
         List<SearchResultTempBO> searchResultTempBOS = new LinkedList<>();
-        Float[] score = scoreUniformization(Arrays.stream(hits).map(SearchHit::getScore).toArray(Float[]::new));
+        long start = System.currentTimeMillis();
+        Float[] score = scoreNormalization(Arrays.stream(hits).map(SearchHit::getScore).toArray(Float[]::new));
+        this.searchLogInfo.append("------ score normalization : ").append(System.currentTimeMillis() - start).append("ms\n");
         for (int item = 0; item < hits.length; item++) {
             Map<String, Object> source = hits[item].getSourceAsMap();
-            searchResultTempBOS.add(new SearchResultTempBO(source.get("uid").toString(),
+            searchResultTempBOS.add(new SearchResultTempBO(hits[item].getId(),
                     Integer.parseInt(source.get("fans").toString()),
                     Float.parseFloat(source.get("score").toString()),
                     score[item], null, source.get("name").toString(),

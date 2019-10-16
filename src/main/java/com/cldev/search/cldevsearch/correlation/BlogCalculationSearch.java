@@ -20,7 +20,8 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.cldev.search.cldevsearch.correlation.weight.CalculationSearchWeight.*;
+import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
+
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -61,7 +62,8 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         this.boolQueryBuilder = resolverAndConfirmBoolQueryBuilder(
                 resolverContext()
         );
-        this.searchRequest = new SearchRequest("wb-art").source(new SearchSourceBuilder().query(this.boolQueryBuilder).size(5000));
+        this.searchRequest = new SearchRequest("wb-art").source(new SearchSourceBuilder().query(this.boolQueryBuilder)
+                .size(weightConfig().getBlogResultSize()));
         return this;
     }
 
@@ -74,9 +76,12 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
     }
 
     @Override
+    @SuppressWarnings("all")
     public List<SearchResultTempBO> getResult(Client client) {
         // 在es中获取博文检索信息
+        long search = System.currentTimeMillis();
         SearchHit[] hits = client.search(searchRequest).actionGet().getHits().getHits();
+        this.searchLogInfo.append("------ The search : ").append(System.currentTimeMillis() - search).append("ms\n");
         long start = System.currentTimeMillis();
         // 将获取到的信息放入List
         List<SearchResultTempBO> searchResultTempBos = new LinkedList<>();
@@ -94,15 +99,15 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         // 根据uid集合去es的用户索引中获取用户信息集合
         long startUser = System.currentTimeMillis();
         ActionFuture<SearchResponse> esUidInfo = client.search(new SearchRequest("wb-user").source(new SearchSourceBuilder()
-                .query(new TermsQueryBuilder("uid", uidList)).size(uidList.size())));
-        System.out.println("----------- search user by uid: " + (System.currentTimeMillis() - startUser) + "ms");
+                .query(new TermsQueryBuilder("_id", uidList)).size(uidList.size())));
         SearchHit[] infoHit = esUidInfo.actionGet().getHits().getHits();
+        this.searchLogInfo.append("------ search user by uid : ").append(System.currentTimeMillis() - startUser).append("ms\n");
         // 将用户信息存入 Map
         Map<String, SearchResultTempBO> searchResVoMap = new HashMap<>(1400);
         for (SearchHit documentFields : infoHit) {
             Map<String, Object> source = documentFields.getSourceAsMap();
-            searchResVoMap.put(source.get("uid").toString(),
-                    new SearchResultTempBO(source.get("uid").toString(),
+            searchResVoMap.put(documentFields.getId(),
+                    new SearchResultTempBO(documentFields.getId(),
                             Integer.parseInt(source.get("fans").toString()),
                             Float.parseFloat(source.get("score").toString()),
                             null, null, null,
@@ -110,8 +115,25 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
                             source.get("province").toString(), Integer.parseInt(source.get("sex").toString())));
         }
         List<SearchResultTempBO> result = new LinkedList<>();
+        Float[] floats = mergeUid(uidList, searchResultTempBos);
+        long scoreNormalization = System.currentTimeMillis();
+        floats = scoreNormalization(floats);
+        this.searchLogInfo.append("------ score normalization : ").append(System.currentTimeMillis() - scoreNormalization).append("ms\n");
+        for (int item = 0; item < uidList.size(); item++) {
+            SearchResultTempBO searchResVO = searchResVoMap.get(uidList.get(item));
+            if (!ObjectUtils.isEmpty(searchResVO)) {
+                result.add(new SearchResultTempBO(uidList.get(item), searchResVO.getWbFans(),
+                        searchResVO.getScore(), floats[item], null, null, searchResVO.getLabels(),
+                        searchResVO.getAddress(), searchResVO.getProvince(), searchResVO.getSex()));
+            }
+        }
+        this.searchLogInfo.append("-------- blog operator total : ").append(System.currentTimeMillis() - start).append("ms\n");
+        return result;
+    }
+
+    private Float[] mergeUid(List<String> uidList, List<SearchResultTempBO> searchResultTempBos) {
         // 对博文结果集进行合并、分权操作
-        long uidNum1 = System.currentTimeMillis();
+        long uidNum = System.currentTimeMillis();
         Float[] floats = new Float[uidList.size()];
         List<SearchResultTempBO> sortByCorrelationScore = searchResultTempBos.stream().sorted((item1, item2) -> {
             if (item1.getUid().compareTo(item2.getUid()) == 0) {
@@ -132,8 +154,8 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         for (int item = 0; item < sortByCorrelationScore.size(); item++) {
             if (!currentUid.equals(sortByCorrelationScore.get(item).getUid())) {
                 currentUid = sortByCorrelationScore.get(item).getUid();
-                floats[sortListIndex++] = resForCorrelationScore * SCORE_WEIGHT +
-                        resForCreateTime * TIME_WEIGHT;
+                floats[sortListIndex++] = resForCorrelationScore * weightConfig().getScoreWeight() +
+                        resForCreateTime * weightConfig().getTimeWeight();
                 factorForCorrelationScore = 1.0f;
                 factorForCreateTime = 1.0f;
                 resForCorrelationScore = 0.0f;
@@ -141,27 +163,15 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
             }
             resForCorrelationScore += sortByCorrelationScore.get(item).getCorrelationScore() * factorForCorrelationScore;
             resForCreateTime += sortByCreateTime.get(item).getCorrelationScore() * factorForCreateTime;
-            factorForCorrelationScore *= DECAY_FACTOR_BY_SCORE;
-            factorForCreateTime *= DECAY_FACTOR_BY_TIME;
+            factorForCorrelationScore *= weightConfig().getDecayFactorByScore();
+            factorForCreateTime *= weightConfig().getDecayFactorByTime();
         }
         if (sortByCorrelationScore.size() != 0) {
-            floats[sortListIndex] = resForCorrelationScore * SCORE_WEIGHT +
-                    resForCreateTime * TIME_WEIGHT;
+            floats[sortListIndex] = resForCorrelationScore * weightConfig().getScoreWeight()+
+                    resForCreateTime * weightConfig().getTimeWeight();
         }
-        System.out.println("----------- uid 归 一: " + (System.currentTimeMillis() - uidNum1) + "ms");
-        long mapMerge = System.currentTimeMillis();
-        floats = scoreUniformization(floats);
-        for (int item = 0; item < uidList.size(); item++) {
-            SearchResultTempBO searchResVO = searchResVoMap.get(uidList.get(item));
-            if (!ObjectUtils.isEmpty(searchResVO)) {
-                result.add(new SearchResultTempBO(uidList.get(item), searchResVO.getWbFans(),
-                        searchResVO.getScore(), floats[item], null, null, searchResVO.getLabels(),
-                        searchResVO.getAddress(), searchResVO.getProvince(), searchResVO.getSex()));
-            }
-        }
-        System.out.println("----------- map Merge: " + (System.currentTimeMillis() - mapMerge) + "ms");
-        System.out.println("blog operator: " + (System.currentTimeMillis() - start) + "ms");
-        return result;
+        this.searchLogInfo.append("------ the same uid merge : ").append(System.currentTimeMillis() - uidNum).append("ms\n");
+        return floats;
     }
 
 }

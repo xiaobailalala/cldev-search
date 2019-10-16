@@ -1,10 +1,12 @@
 package com.cldev.search.cldevsearch.controller;
 
+import com.cldev.search.cldevsearch.dto.BlogDataDTO;
+import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.service.EsToolsService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -41,10 +43,12 @@ import java.util.List;
 public class EsToolsController {
 
     private final EsToolsService esToolsService;
+    private final RestTemplate restTemplate;
 
     @Autowired
-    public EsToolsController(EsToolsService esToolsService) {
+    public EsToolsController(EsToolsService esToolsService, RestTemplate restTemplate) {
         this.esToolsService = esToolsService;
+        this.restTemplate = restTemplate;
     }
 
     @GetMapping("/loadData")
@@ -65,6 +69,41 @@ public class EsToolsController {
     @GetMapping("/checkFileCount")
     public String checkFileCount() {
         return esToolsService.checkFileCount();
+    }
+
+    @GetMapping("/create/indices/user")
+    public Object createIndicesUser() {
+        return esToolsService.createIndicesUser();
+    }
+
+    @GetMapping("/create/indices/blog")
+    public Object createIndicesBlog() {
+        return esToolsService.createIndicesBlog();
+    }
+
+    @GetMapping("/loadData/user")
+    public String loadDataForUser() {
+        return esToolsService.loadDataForUser();
+    }
+
+    @PostMapping("/dayTask/create/blogIndices")
+    public String dayTaskCreateBlogIndices(@RequestParam("count") Integer count) {
+        return esToolsService.dayTaskCreateBlogIndices(count);
+    }
+
+    @PostMapping("/dayTask/load/blogData")
+    public String dayTaskLoadBlogData(@RequestBody BlogDataDTO blogDataDTO) {
+        return esToolsService.dayTaskLoadBlogData(blogDataDTO);
+    }
+
+    @PostMapping("/dayTask/update/userFans")
+    public String dayTaskUpdateUserFans(@RequestBody List<UserFansDTO> userFansDTOList) {
+        return esToolsService.dayTaskUpdateUserFans(userFansDTOList);
+    }
+
+    @PostMapping("/dayTask/update/userLabels")
+    public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabelDTOList) {
+        return esToolsService.dayTaskUpdateUserLabels(userLabelDTOList);
     }
 
 }

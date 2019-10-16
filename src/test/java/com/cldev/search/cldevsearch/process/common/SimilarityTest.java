@@ -1,4 +1,4 @@
-package com.cldev.search.cldevsearch.common;
+package com.cldev.search.cldevsearch.process.common;
 
 import org.junit.Test;
 

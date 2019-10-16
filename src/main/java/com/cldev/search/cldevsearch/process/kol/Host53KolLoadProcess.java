@@ -1,6 +1,6 @@
 package com.cldev.search.cldevsearch.process.kol;
 
-import com.cldev.search.cldevsearch.common.AbstractHostLoadProcess;
+import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +49,7 @@ public class Host53KolLoadProcess extends AbstractHostLoadProcess {
             //6000000
             new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_77.csv").setIndices("wb-art-" + dateToStamp("2016-10-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_78.csv").setIndices("wb-art-" + dateToStamp("2016-11-01")),
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_78.csv").setIndices("wb-art-" + dateToStamp("2016-10-01")),
             //6000000
             new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_79.csv").setIndices("wb-art-" + dateToStamp("2016-11-01")),
             //6000000
@@ -65,17 +65,7 @@ public class Host53KolLoadProcess extends AbstractHostLoadProcess {
             //6000000
             new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_85.csv").setIndices("wb-art-" + dateToStamp("2016-11-01")),
             //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_86.csv").setIndices("wb-art-" + dateToStamp("2016-11-01")),
-            //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_87.csv").setIndices("wb-art-" + dateToStamp("2016-11-01")),
-            //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_88.csv").setIndices("wb-art-" + dateToStamp("2016-12-01")),
-            //90961
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_89.csv").setIndices("wb-art-" + dateToStamp("2017-01-01")),
-            //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_98.csv").setIndices("wb-art-" + dateToStamp("2016-12-01")),
-            //6000000
-            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_99.csv").setIndices("wb-art-" + dateToStamp("2016-12-01"))
+            new CsvMapping(dataFolder).setFileName("uid_mid_blog_80w_kol_86.csv").setIndices("wb-art-" + dateToStamp("2016-11-01"))
     );
 
     @Override
@@ -86,8 +76,8 @@ public class Host53KolLoadProcess extends AbstractHostLoadProcess {
     @Override
     public void loadData() {
         super.loadData(Arrays.asList(
-                csvMappings.subList(0, 10),
-                csvMappings.subList(10, 19)
+                csvMappings.subList(0, 7),
+                csvMappings.subList(7, 14)
         ));
     }
 

@@ -108,4 +108,19 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
 //        }
     }
 
+    @Override
+    public String toString() {
+        return "SearchResultTempBO{" +
+                "correlationScore=" + correlationScore +
+                ", createTime='" + createTime + '\'' +
+                ", name='" + name + '\'' +
+                ", labels=" + labels +
+                ", address='" + address + '\'' +
+                ", province='" + province + '\'' +
+                ", sex=" + sex +
+                ", uid=" + getUid() +
+                ", fans=" + getWbFans() +
+                ", score=" + getScore() +
+                '}';
+    }
 }

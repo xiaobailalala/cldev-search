@@ -47,7 +47,7 @@ public class CyclicBarrierTest implements Runnable {
 
     private List<Integer> res = new LinkedList<>();
 
-    public void resolver() {
+    private void resolver() {
         threadPool.execute(() -> {
             result.addAll(Arrays.asList(1, 9, 4, 2));
             try {

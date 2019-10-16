@@ -10,6 +10,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.util.List;
 
+import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
+
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
  * <p>
@@ -52,12 +54,13 @@ public class BlogCalculationSearchUidList extends BlogCalculationSearch {
                 resolverContext(),
                 resolverUidList()
         );
-        this.searchRequest = new SearchRequest("wb-art").source(new SearchSourceBuilder().query(this.boolQueryBuilder).size(5000));
+        this.searchRequest = new SearchRequest("wb-art").source(new SearchSourceBuilder().query(this.boolQueryBuilder)
+                .size(weightConfig().getBlogResultSize()));
         return this;
     }
 
-    protected BoolQueryBuilder resolverUidList() {
-        return boolQueryBuilder.must(new TermsQueryBuilder("uid", this.uidList));
+    private BoolQueryBuilder resolverUidList() {
+        return boolQueryBuilder.must(new TermsQueryBuilder("_id", this.uidList));
     }
 
     public BlogCalculationSearchUidList setUidList(List<String> uidList) {

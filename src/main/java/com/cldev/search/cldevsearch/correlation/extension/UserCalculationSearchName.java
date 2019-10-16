@@ -2,10 +2,9 @@ package com.cldev.search.cldevsearch.correlation.extension;
 
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchPhraseQueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.springframework.util.StringUtils;
 
 /**
@@ -44,20 +43,16 @@ public class UserCalculationSearchName extends UserCalculationSearch {
 
     @Override
     public UserCalculationSearch initSearchCondition() {
-        this.boolQueryBuilder = resolverAndConfirmBoolQueryBuilder(
-                resolverContext()
-        );
-        this.searchRequest = new SearchRequest("wb-user").source(new SearchSourceBuilder()
-                .query(this.boolQueryBuilder)
-                .size(1000));
-        return this;
+        return super.initSearchCondition();
     }
 
     @Override
     protected BoolQueryBuilder resolverContext() {
         String context = this.searchConditionDTO.getContext();
         if (!StringUtils.isEmpty(context)) {
-            this.boolQueryBuilder = this.boolQueryBuilder.must(new MatchPhraseQueryBuilder("name", context));
+            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", context));
+            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", context));
+            return this.boolQueryBuilder;
         }
         return null;
     }
