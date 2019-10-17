@@ -3,6 +3,7 @@ package com.cldev.search.cldevsearch.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.config.CalculationSearchWeightConfig;
 import com.cldev.search.cldevsearch.dto.FactorConfigDTO;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +54,11 @@ public class EsConfigController {
     @PostMapping("/configure")
     public String configure(@RequestBody FactorConfigDTO factorConfigDTO) {
         return config.configureFactor(factorConfigDTO);
+    }
+
+    @GetMapping("/refresh/labelMapping")
+    public String refreshLabelMapping(@RequestParam String fileName) {
+        return BeanUtil.labelRegistryConfig().updateLabelMapping(fileName);
     }
 
 }

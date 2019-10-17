@@ -122,4 +122,16 @@ public interface EsToolsService {
      * @return Execution status
      */
     String dayTaskUpdateUserLabels(List<UserLabelDTO> userLabelDTOList);
+
+    /**
+     * After the end of the user day, you need to merge segments
+     * @return Execution status
+     */
+    String dayTaskForceMergeUser();
+
+    /**
+     * After the end of the blog day, you need to merge segments
+     * @return Execution status
+     */
+    String dayTaskForceMergeBlog();
 }

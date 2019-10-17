@@ -1,6 +1,8 @@
 package com.cldev.search.cldevsearch.util;
 
 import com.cldev.search.cldevsearch.config.CalculationSearchWeightConfig;
+import com.cldev.search.cldevsearch.config.LabelRegistryConfig;
+import com.cldev.search.cldevsearch.config.SearchConfig;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -34,6 +36,14 @@ public class BeanUtil {
 
     public static CalculationSearchWeightConfig weightConfig() {
         return SpringContextUtil.getContext().getBean(CalculationSearchWeightConfig.class);
+    }
+
+    public static SearchConfig searchConfig() {
+        return SpringContextUtil.getContext().getBean(SearchConfig.class);
+    }
+
+    public static LabelRegistryConfig labelRegistryConfig() {
+        return SpringContextUtil.getContext().getBean(LabelRegistryConfig.class);
     }
 
 }

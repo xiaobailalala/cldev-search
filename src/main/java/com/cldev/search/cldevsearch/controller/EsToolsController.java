@@ -43,12 +43,10 @@ import java.util.List;
 public class EsToolsController {
 
     private final EsToolsService esToolsService;
-    private final RestTemplate restTemplate;
 
     @Autowired
-    public EsToolsController(EsToolsService esToolsService, RestTemplate restTemplate) {
+    public EsToolsController(EsToolsService esToolsService) {
         this.esToolsService = esToolsService;
-        this.restTemplate = restTemplate;
     }
 
     @GetMapping("/loadData")
@@ -104,6 +102,16 @@ public class EsToolsController {
     @PostMapping("/dayTask/update/userLabels")
     public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabelDTOList) {
         return esToolsService.dayTaskUpdateUserLabels(userLabelDTOList);
+    }
+
+    @GetMapping("/dayTask/forceMerge/user")
+    public String dayTaskForceMergeUser() {
+        return esToolsService.dayTaskForceMergeUser();
+    }
+
+    @GetMapping("/dayTask/forceMerge/blog")
+    public String dayTaskForceMergeBlog() {
+        return esToolsService.dayTaskForceMergeBlog();
     }
 
 }

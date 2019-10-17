@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -272,28 +273,15 @@ public class EsToolsServiceImpl implements EsToolsService {
     @Override
     public String dayTaskCreateBlogIndices(Integer count) {
         try {
-            List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
-            assert indicesList != null;
-            List<Indices> indices = new LinkedList<>();
-            for (Object item : indicesList) {
-                String index = ((LinkedHashMap) item).get("index").toString();
-                Integer docsCount = Integer.parseInt(((LinkedHashMap) item).get("docs.count").toString());
-                if (index.startsWith("wb-test")) {
-//                if (index.startsWith("wb-art")) {
-                    indices.add(new Indices(index, docsCount));
-                }
-            }
-            Collections.sort(indices);
+            Indices blogIndices = getNewBlogIndices();
             int limit = 60000000;
             int dyna = 1000000;
-            if (indices.get(0).count + count <= limit) {
-                return indices.get(0).indices;
-            } else if (indices.get(0).count + count - limit <= dyna) {
-                return indices.get(0).indices;
+            if (blogIndices.count + count <= limit) {
+                return blogIndices.indices;
+            } else if (blogIndices.count + count - limit <= dyna) {
+                return blogIndices.indices;
             } else {
-//                asyncTaskUtil.asyncCustomTask(() -> restTemplate.postForObject("http://192.168.2.76:9200/" + indices.get(1) + "/_forcemerge?max_num_segments=1", null, Object.class));
-//                return createBlogIndices(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
-                return "create new indices";
+                return createBlogIndices(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -308,8 +296,7 @@ public class EsToolsServiceImpl implements EsToolsService {
             String time = blog.getTime();
             try {
                 builder.add(esTemplate.getClient().
-                        prepareIndex(blogDataDTO.getIndices(), "blog").setSource(
-//                        prepareIndex(blogDataDTO.getIndices(), "article").setSource(
+                        prepareIndex(blogDataDTO.getIndices(), "article").setSource(
                         XContentFactory.jsonBuilder()
                                 .startObject()
                                 .field("uid", blog.getUid())
@@ -361,6 +348,34 @@ public class EsToolsServiceImpl implements EsToolsService {
         }
         builder.get();
         return "success";
+    }
+
+    @Override
+    public String dayTaskForceMergeUser() {
+        asyncTaskUtil.asyncCustomTask(() -> restTemplate.postForObject("http://192.168.2.76:9200/wb-user-1569427200000/_forcemerge?max_num_segments=1", null, Object.class));
+        return "force merge for user indices start";
+    }
+
+    @Override
+    public String dayTaskForceMergeBlog() {
+        Indices blogIndices = getNewBlogIndices();
+        asyncTaskUtil.asyncCustomTask(() -> restTemplate.postForObject("http://192.168.2.76:9200/" + blogIndices.indices + "/_forcemerge?max_num_segments=1", null, Object.class));
+        return "force merge for blog indices start";
+    }
+
+    private Indices getNewBlogIndices() {
+        List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
+        assert indicesList != null;
+        List<Indices> indices = new LinkedList<>();
+        for (Object item : indicesList) {
+            String index = ((LinkedHashMap) item).get("index").toString();
+            Integer docsCount = Integer.parseInt(((LinkedHashMap) item).get("docs.count").toString());
+            if (index.startsWith("wb-art")) {
+                indices.add(new Indices(index, docsCount));
+            }
+        }
+        Collections.sort(indices);
+        return indices.get(0);
     }
 
     private String generatorAddr(String province, String city) {

@@ -278,7 +278,9 @@ public class CalculationSearchFactory implements Runnable {
             /* 根据中-拼音转换后的拼音全拼比对 */
             double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
                     ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
-            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin()) {
+            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
+                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
+                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
                 /* 根据中-拼音转换后的拼音首字母比对 */
             } /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),

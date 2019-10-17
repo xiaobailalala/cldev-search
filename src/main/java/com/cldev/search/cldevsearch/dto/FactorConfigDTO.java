@@ -53,6 +53,10 @@ public class FactorConfigDTO {
 
     private Float usernameSimilarityPinyin;
 
+    private Float pinyinChildWithChinese;
+
+    private Float pinyinChildWithTraditional;
+
     private Float usernameSimilarityPinyinHead;
 
     private Float userScoreWeight;

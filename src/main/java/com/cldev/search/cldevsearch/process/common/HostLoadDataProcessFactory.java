@@ -1,6 +1,8 @@
 package com.cldev.search.cldevsearch.process.common;
 
 import com.cldev.search.cldevsearch.util.ProcessUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -41,6 +43,7 @@ public class HostLoadDataProcessFactory {
     private static final String REFERENCE_KOL_SUFFIX = "KolLoadProcess";
     private static final String ADAPTATION_ENVIRONMENT = "Linux";
     private static final String HOST_NUM_CMD = "ifconfig | grep 'inet addr:192.168.2' | awk '{print $2}' | awk -F \".\" '{print $4}'";
+    private static final Logger LOGGER = LoggerFactory.getLogger(HostLoadDataProcessFactory.class);
 
     private HostLoadDataProcessFactory() {
     }
@@ -65,7 +68,8 @@ public class HostLoadDataProcessFactory {
                 Constructor<?> constructor = clazz.getConstructor();
                 return (AbstractHostLoadProcess) constructor.newInstance();
             } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
+                LOGGER.error("The Class " + processName + " not fount");
+                return null;
             }
         }
         return null;

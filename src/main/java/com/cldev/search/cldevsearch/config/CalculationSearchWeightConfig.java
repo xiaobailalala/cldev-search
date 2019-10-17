@@ -2,6 +2,7 @@ package com.cldev.search.cldevsearch.config;
 
 import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.dto.FactorConfigDTO;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import lombok.Getter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.ObjectUtils;
@@ -97,6 +98,18 @@ public class CalculationSearchWeightConfig {
     private volatile float usernameSimilarityPinyin = 0.9f;
 
     /**
+     * On the premise of satisfying the limitation of pinyin factor, the original text needs to be sub filtered
+     */
+    @Getter
+    private volatile float pinyinChildWithChinese = 0.6f;
+
+    /**
+     * On the premise of satisfying the limitation of pinyin factor, the original text needs to be sub filtered
+     */
+    @Getter
+    private volatile float pinyinChildWithTraditional = 0.6f;
+
+    /**
      * In the search result set, the search term and the name in the result set are matched by string similarity
      * Its value is name similarity
      * Based on pinyin head
@@ -163,25 +176,40 @@ public class CalculationSearchWeightConfig {
     private float complementaryFactor = 1.0f;
 
     public JSONObject getConfig() {
+        JSONObject config = new JSONObject();
+        config.put("blog-decay", decay());
+        config.put("name-similarity", nameSimilarity());
+        config.put("comprehensive-process", comprehensive());
+        config.put("label-mapping", BeanUtil.labelRegistryConfig().getLabels());
+        return config;
+    }
+
+    private JSONObject decay() {
         JSONObject decay = new JSONObject();
         decay.put("decay-factor", JSONObject.parseObject("{\"score\": " + this.decayFactorByScore + ", \"time\": " + this.decayFactorByTime + "}"));
         decay.put("join-weight", JSONObject.parseObject("{\"score\": " + this.scoreWeight + ", \"time\": " + this.timeWeight + "}"));
+        return decay;
+    }
+
+    private JSONObject nameSimilarity() {
         JSONObject similarity = new JSONObject();
         similarity.put("chinese", this.usernameSimilarityChinese);
         similarity.put("traditional", this.usernameSimilarityTraditional);
-        similarity.put("pinyin", this.usernameSimilarityPinyin);
+        JSONObject pinyinJson = new JSONObject();
+        pinyinJson.put("base", this.usernameSimilarityPinyin);
+        pinyinJson.put("child", JSONObject.parseObject("{\"chinese\": " + this.pinyinChildWithChinese + ", \"traditional\": " + this.pinyinChildWithTraditional + "}"));
+        similarity.put("pinyin", pinyinJson);
         similarity.put("pinyin-head", this.usernameSimilarityPinyinHead);
+        return similarity;
+    }
+
+    private JSONObject comprehensive() {
         JSONObject comprehensive = new JSONObject();
         comprehensive.put("score-weight", JSONObject.parseObject("{\"user\": " + this.userScoreWeight + ", \"blog\": " + this.blogScoreWeight + "}"));
         comprehensive.put("result-size", JSONObject.parseObject("{\"user\": " + this.userResultSize + ", \"blog\": " + this.blogResultSize + "}"));
         comprehensive.put("blog-score-weight", JSONObject.parseObject("{\"correlation\": " + this.blogCorrelationScoreWeight + ", \"influence\": " + this.blogInfluenceScoreWeight + "}"));
-        JSONObject config = new JSONObject();
-        config.put("blog-decay", decay);
-        config.put("name-similarity", similarity);
-        config.put("comprehensive-process", comprehensive);
-        return config;
+        return comprehensive;
     }
-
 
     public String configureFactor(FactorConfigDTO config) {
         Status status = executeAndVerify(
@@ -237,6 +265,12 @@ public class CalculationSearchWeightConfig {
         }
         if (!ObjectUtils.isEmpty(config.getUsernameSimilarityPinyinHead())) {
             this.usernameSimilarityPinyinHead = config.getUsernameSimilarityPinyinHead();
+        }
+        if (!ObjectUtils.isEmpty(config.getPinyinChildWithChinese())) {
+            this.pinyinChildWithChinese = config.getPinyinChildWithChinese();
+        }
+        if (!ObjectUtils.isEmpty(config.getPinyinChildWithTraditional())) {
+            this.pinyinChildWithTraditional = config.getPinyinChildWithTraditional();
         }
         return new Status(true);
     }

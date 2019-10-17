@@ -1,12 +1,15 @@
 package com.cldev.search.cldevsearch.dto;
 
+import com.cldev.search.cldevsearch.config.LabelRegistryConfig;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import lombok.*;
 import lombok.experimental.Accessors;
+import org.springframework.context.support.ApplicationObjectSupport;
 import org.springframework.util.ObjectUtils;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -128,16 +131,7 @@ public class SearchConditionDTO {
     }
 
     public List<Integer> getInterest() {
-        LinkedList<Integer> integers = new LinkedList<>();
-        if (!ObjectUtils.isEmpty(interest)) {
-            for (String item : interest) {
-                EnumInterest enumInterest = EnumInterest.getInterest(item);
-                if (!ObjectUtils.isEmpty(enumInterest)) {
-                    integers.add(enumInterest.code);
-                }
-            }
-        }
-        return integers;
+        return BeanUtil.labelRegistryConfig().getInterest(interest);
     }
 
     @Getter

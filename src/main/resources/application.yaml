@@ -9,4 +9,4 @@ server:
   port: 8989
 
 search-config:
-  label-mapping-file: "filename"
+  label-mapping-file: "label-mapping-02"
