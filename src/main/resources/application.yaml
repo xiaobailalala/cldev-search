@@ -7,3 +7,6 @@ spring:
         enabled: true
 server:
   port: 8989
+
+search-config:
+  label-mapping-file: "filename"
