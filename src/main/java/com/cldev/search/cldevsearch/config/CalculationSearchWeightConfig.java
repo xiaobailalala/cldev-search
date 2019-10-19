@@ -79,7 +79,7 @@ public class CalculationSearchWeightConfig {
      * Based on Chinese characters
      */
     @Getter
-    private volatile float usernameSimilarityChinese = 0.8f;
+    private volatile float usernameSimilarityChinese = 0.79f;
 
     /**
      * In the search result set, the search term and the name in the result set are matched by string similarity
@@ -87,7 +87,7 @@ public class CalculationSearchWeightConfig {
      * Based on Traditional characters
      */
     @Getter
-    private volatile float usernameSimilarityTraditional = 0.8f;
+    private volatile float usernameSimilarityTraditional = 0.79f;
 
     /**
      * In the search result set, the search term and the name in the result set are matched by string similarity
@@ -95,19 +95,19 @@ public class CalculationSearchWeightConfig {
      * Based on pinyin
      */
     @Getter
-    private volatile float usernameSimilarityPinyin = 0.9f;
+    private volatile float usernameSimilarityPinyin = 0.89f;
 
     /**
      * On the premise of satisfying the limitation of pinyin factor, the original text needs to be sub filtered
      */
     @Getter
-    private volatile float pinyinChildWithChinese = 0.6f;
+    private volatile float pinyinChildWithChinese = 0.59f;
 
     /**
      * On the premise of satisfying the limitation of pinyin factor, the original text needs to be sub filtered
      */
     @Getter
-    private volatile float pinyinChildWithTraditional = 0.6f;
+    private volatile float pinyinChildWithTraditional = 0.59f;
 
     /**
      * In the search result set, the search term and the name in the result set are matched by string similarity
@@ -115,7 +115,7 @@ public class CalculationSearchWeightConfig {
      * Based on pinyin head
      */
     @Getter
-    private volatile float usernameSimilarityPinyinHead = 0.8f;
+    private volatile float usernameSimilarityPinyinHead = 0.79f;
 
     /**
      * For the same search term,

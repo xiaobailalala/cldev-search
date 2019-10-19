@@ -83,4 +83,9 @@ public class SimilarityUtil {
         return 1 - (double) ld / Math.max(str1.length(), str2.length());
     }
 
+    public static void main(String[] args) {
+        float a = 0.1f, b = 0.2f;
+        System.out.println(a + b == 0.3);
+    }
+
 }

@@ -2,6 +2,7 @@ package com.cldev.search.cldevsearch;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -34,7 +35,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class CldevSearchApplication {
 
-    /** 29 42 44-54 60-64 */
     public static void main(String[] args) {
         SpringApplication.run(CldevSearchApplication.class, args);
     }

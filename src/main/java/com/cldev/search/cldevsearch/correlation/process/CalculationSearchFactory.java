@@ -256,6 +256,12 @@ public class CalculationSearchFactory implements Runnable {
         this.searchLogInfo.append("result operator total : ").append(System.currentTimeMillis() - start).append("ms\n")
                 .append("-------------------- The total time of this search is ").append(System.currentTimeMillis() - this.searchTimeStart).append("ms --------------------");
         logger.info(this.searchLogInfo.toString());
+        for (SearchResVO item : this.resultUid) {
+            System.out.println(((SearchResultTempBO) item).getCorrelationScore());
+            if (item.getUid().equals("1891366595")) {
+                System.out.println("*************" + ((SearchResultTempBO) item).getCorrelationScore());
+            }
+        }
     }
 
     private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {
@@ -263,14 +269,14 @@ public class CalculationSearchFactory implements Runnable {
         long similarityStart = System.currentTimeMillis();
         for (SearchResultTempBO userName : userNameResult) {
             /* 优先根据原文中字比对 */
-            double compareInChinese = SimilarityUtil.sim(userName.getName(), condition.getContext());
+            double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), condition.getContext().toLowerCase());
             if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
                 continue;
             }
             /* 根据繁-简转化后的中字比对 */
-            double compareInTraditional  = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()),
-                    HanLP.convertToSimplifiedChinese(condition.getContext()));
+            double compareInTraditional  = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
+                    HanLP.convertToSimplifiedChinese(condition.getContext()).toLowerCase());
             if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
                 continue;
