@@ -256,12 +256,6 @@ public class CalculationSearchFactory implements Runnable {
         this.searchLogInfo.append("result operator total : ").append(System.currentTimeMillis() - start).append("ms\n")
                 .append("-------------------- The total time of this search is ").append(System.currentTimeMillis() - this.searchTimeStart).append("ms --------------------");
         logger.info(this.searchLogInfo.toString());
-        for (SearchResVO item : this.resultUid) {
-            System.out.println(((SearchResultTempBO) item).getCorrelationScore());
-            if (item.getUid().equals("1891366595")) {
-                System.out.println("*************" + ((SearchResultTempBO) item).getCorrelationScore());
-            }
-        }
     }
 
     private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {
@@ -382,6 +376,13 @@ public class CalculationSearchFactory implements Runnable {
             }
             return sortBySimilarityScore;
         }
+    }
+
+    /**
+     * 官微处理
+     */
+    private void OfficialMicroOperator() {
+
     }
 
 }
