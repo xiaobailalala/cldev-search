@@ -378,4 +378,11 @@ public class CalculationSearchFactory implements Runnable {
         }
     }
 
+    /**
+     * 官微处理
+     */
+    private void OfficialMicroOperator() {
+
+    }
+
 }
