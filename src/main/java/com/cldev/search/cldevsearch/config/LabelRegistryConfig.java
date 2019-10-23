@@ -50,11 +50,13 @@ public class LabelRegistryConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (ObjectUtils.isEmpty(BeanUtil.searchConfig().getLabelMappingFile())) {
-            throw new RuntimeException("Must specify The label mapping file");
+        if (!BeanUtil.searchConfig().getLoadData()) {
+            if (ObjectUtils.isEmpty(BeanUtil.searchConfig().getLabelMappingFile())) {
+                throw new RuntimeException("Must specify The label mapping file");
+            }
+            labels = new ConcurrentHashMap<>(80);
+            loadLabelMapping(BeanUtil.searchConfig().getLabelMappingFile());
         }
-        labels = new ConcurrentHashMap<>(80);
-        loadLabelMapping(BeanUtil.searchConfig().getLabelMappingFile());
     }
 
     public void loadLabelMapping(String labelMappingFile) throws IOException {

@@ -10,3 +10,4 @@ server:
 
 search-config:
   label-mapping-file: "label-mapping-02"
+  load-data: false

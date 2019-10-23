@@ -71,4 +71,6 @@ public class FactorConfigDTO {
 
     private Float blogInfluenceScoreWeight;
 
+    private Boolean influenceWithWeight;
+
 }

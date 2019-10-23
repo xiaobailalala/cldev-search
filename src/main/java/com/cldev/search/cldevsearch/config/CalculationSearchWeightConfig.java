@@ -63,7 +63,7 @@ public class CalculationSearchWeightConfig {
      * Its value is the weighted factor of correlation score (number of articles)
      */
     @Getter
-    private volatile float scoreWeight = 0.6f;
+    private volatile float scoreWeight = 1.0f;
 
     /**
      * In the result set of blog posts, the score of the two groups was weighted according to the intervention of
@@ -71,7 +71,7 @@ public class CalculationSearchWeightConfig {
      * Its value is a weighted factor of publication time
      */
     @Getter
-    private volatile float timeWeight = 0.4f;
+    private volatile float timeWeight = 0.0f;
 
     /**
      * In the search result set, the search term and the name in the result set are matched by string similarity
@@ -170,6 +170,16 @@ public class CalculationSearchWeightConfig {
     private volatile float blogInfluenceScoreWeight = 0.5f;
 
     /**
+     * Influence score and relevance score are calculated by means of indicating whether the right of use is enabled or not.
+     * Is [true] means that the influence score and correlation score are regarded as a parallel relationship,
+     * and the final score is calculated in the way of heavy use.
+     * Where [false] means that the influence score and correlation score are regarded as the overall relationship,
+     * and the final score is calculated by product
+     */
+    @Getter
+    private volatile boolean influenceWithWeight = false;
+
+    /**
      * Some weights require a sum of 1,
      * so define the complementary factor to determine the sum of complementary weights
      */
@@ -207,7 +217,7 @@ public class CalculationSearchWeightConfig {
         JSONObject comprehensive = new JSONObject();
         comprehensive.put("score-weight", JSONObject.parseObject("{\"user\": " + this.userScoreWeight + ", \"blog\": " + this.blogScoreWeight + "}"));
         comprehensive.put("result-size", JSONObject.parseObject("{\"user\": " + this.userResultSize + ", \"blog\": " + this.blogResultSize + "}"));
-        comprehensive.put("blog-score-weight", JSONObject.parseObject("{\"correlation\": " + this.blogCorrelationScoreWeight + ", \"influence\": " + this.blogInfluenceScoreWeight + "}"));
+        comprehensive.put("influence-correlation", JSONObject.parseObject("{\"score-with-weight\": \"" + this.influenceWithWeight + "\", \"weight\": {\"correlation\": " + this.blogCorrelationScoreWeight + ", \"influence\": " + this.blogInfluenceScoreWeight + "}}"));
         return comprehensive;
     }
 
@@ -218,7 +228,8 @@ public class CalculationSearchWeightConfig {
                 configureDecayWeight(config),
                 configureComprehensiveScoreWeight(config),
                 configureComprehensiveResultSize(config),
-                configureComprehensiveBlogScoreWeight(config)
+                configureComprehensiveBlogScoreWeight(config),
+                configureInfluenceWithWeight(config)
         );
         if (status.success) {
             return "success";
@@ -335,6 +346,13 @@ public class CalculationSearchWeightConfig {
         } else if (!ObjectUtils.isEmpty(config.getBlogCorrelationScoreWeight()) && ObjectUtils.isEmpty(config.getBlogInfluenceScoreWeight())) {
             this.blogCorrelationScoreWeight = config.getBlogCorrelationScoreWeight();
             this.blogInfluenceScoreWeight = this.complementaryFactor - config.getBlogCorrelationScoreWeight();
+        }
+        return new Status(true);
+    }
+
+    private Status configureInfluenceWithWeight(FactorConfigDTO config) {
+        if (!ObjectUtils.isEmpty(config.getInfluenceWithWeight())) {
+            this.influenceWithWeight = config.getInfluenceWithWeight();
         }
         return new Status(true);
     }

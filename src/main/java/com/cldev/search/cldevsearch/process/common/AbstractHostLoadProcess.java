@@ -1,6 +1,7 @@
 package com.cldev.search.cldevsearch.process.common;
 
 
+import com.cldev.search.cldevsearch.bo.BlogBO;
 import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
 import com.cldev.search.cldevsearch.util.CommonUtil;
 import com.cldev.search.cldevsearch.util.ProcessUtil;
@@ -10,19 +11,19 @@ import lombok.experimental.Accessors;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.util.StringUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -72,6 +73,7 @@ public abstract class AbstractHostLoadProcess {
 
     /**
      * check file count with csvMapping
+     *
      * @return status
      */
     public abstract String checkFileCount();
@@ -118,23 +120,23 @@ public abstract class AbstractHostLoadProcess {
                 BulkRequestBuilder builder = elasticsearchTemplate.getClient().prepareBulk();
                 int count = 0;
                 printLoadLog("log-" + threadName, "read and load start, file is " + csvFileMapping.getFileName());
+                List<BlogBO> blogTempList = new LinkedList<>();
                 for (CSVRecord record : csvRecords) {
                     count++;
                     String createdAt = record.get("created_at");
+                    blogTempList.add(new BlogBO().setArticle(record.get("article"))
+                            .setTime(createdAt.split(" ").length == 1 ? dateToStamp(createdAt + " 00:00:00") : dateToStamp(createdAt))
+                            .setUid(record.get("uid")).setMid(record.get("mid")));
                     builder.add(elasticsearchTemplate.getClient().
-                            prepareIndex(csvFileMapping.getIndices(), "article").setSource(
-                            XContentFactory.jsonBuilder().startObject()
-                                    .field("uid", record.get("uid"))
-                                    .field("article", record.get("article"))
-                                    .field("time", createdAt.split(" ").length == 1 ? dateToStamp(createdAt + " 00:00:00") : dateToStamp(createdAt))
-                                    .endObject()));
-                    if (count % 100000 == 0) {
-                        load(builder, threadName);
+                            prepareIndex("wb-blog-mid", "mid", record.get("mid")).setSource(XContentFactory.jsonBuilder().startObject().endObject()));
+                    if (count % 10000 == 0) {
+                        load(builder, threadName, elasticsearchTemplate, blogTempList, csvFileMapping.getIndices());
+                        blogTempList = new LinkedList<>();
                         builder = elasticsearchTemplate.getClient().prepareBulk();
                     }
                 }
-                if (count % 100000 != 0) {
-                    load(builder, threadName);
+                if (count % 10000 != 0) {
+                    load(builder, threadName, elasticsearchTemplate, blogTempList, csvFileMapping.getIndices());
                 }
                 printLoadLog("log-" + threadName, "read and load finish, file is " + csvFileMapping.getFileName());
             } catch (IOException ignored) {
@@ -143,14 +145,36 @@ public abstract class AbstractHostLoadProcess {
         printLoadLog("log-" + threadName, "\r\nload thread finish");
     }
 
-    private void load(BulkRequestBuilder builder, String threadName) {
+    public static void load(BulkRequestBuilder builder, String threadName, ElasticsearchTemplate elasticsearchTemplate, List<BlogBO> blogTempList, String indices) throws IOException {
         long start = System.currentTimeMillis();
+        StringBuilder logStr = new StringBuilder();
+        logStr.append("load start:\n");
         printLoadLog("log-" + threadName, "load start:");
-        builder.get();
-        printLoadLog("log-" + threadName, "load end: " + (System.currentTimeMillis() - start));
+        Set<String> effectiveMid = Arrays.stream(builder.get().getItems())
+                .filter(item -> item.getResponse().getResult().equals(DocWriteResponse.Result.CREATED))
+                .map(BulkItemResponse::getId).collect(Collectors.toSet());
+        builder = elasticsearchTemplate.getClient().prepareBulk();
+        List<BlogBO> filterBlog = blogTempList.stream().filter(item -> effectiveMid.contains(item.getMid())).collect(Collectors.toList());
+        for (BlogBO blog : filterBlog) {
+            builder.add(elasticsearchTemplate.getClient().
+                    prepareIndex(indices, "article", blog.getMid()).setSource(
+                    XContentFactory.jsonBuilder().startObject()
+                            .field("uid", blog.getUid())
+                            .field("article", blog.getArticle())
+                            .field("time", blog.getTime())
+                            .endObject()));
+        }
+        int failureCount = 0;
+        while (builder.get().hasFailures()) {
+            System.out.println("failure count : " + ++failureCount);
+        }
+        logStr.append("load end: ").append(System.currentTimeMillis() - start)
+                .append("  filter blog: ").append(blogTempList.size() - filterBlog.size())
+                .append("  time: ").append(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+        printLoadLog("log-" + threadName, logStr.toString());
     }
 
-    private void printLoadLog(String fileName, String msg) {
+    private static void printLoadLog(String fileName, String msg) {
         File file = new File(fileName);
         FileOutputStream fileOutputStream = null;
         try {

@@ -134,4 +134,10 @@ public interface EsToolsService {
      * @return Execution status
      */
     String dayTaskForceMergeBlog();
+
+    /**
+     * create indices for mid into es
+     * @return execute status
+     */
+    Object createIndicesMid();
 }

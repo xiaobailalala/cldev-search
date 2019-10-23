@@ -4,11 +4,19 @@ import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserFansDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.service.EsToolsService;
+import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -43,10 +51,12 @@ import java.util.List;
 public class EsToolsController {
 
     private final EsToolsService esToolsService;
+    private final ElasticsearchTemplate elasticsearchTemplate;
 
     @Autowired
-    public EsToolsController(EsToolsService esToolsService) {
+    public EsToolsController(EsToolsService esToolsService, ElasticsearchTemplate elasticsearchTemplate) {
         this.esToolsService = esToolsService;
+        this.elasticsearchTemplate = elasticsearchTemplate;
     }
 
     @GetMapping("/loadData")
@@ -77,6 +87,11 @@ public class EsToolsController {
     @GetMapping("/create/indices/blog")
     public Object createIndicesBlog() {
         return esToolsService.createIndicesBlog();
+    }
+
+    @GetMapping("/create/indices/mid")
+    public Object createIndicesMid() {
+        return esToolsService.createIndicesMid();
     }
 
     @GetMapping("/loadData/user")

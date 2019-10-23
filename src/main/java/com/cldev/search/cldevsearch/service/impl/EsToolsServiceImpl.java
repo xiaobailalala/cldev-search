@@ -11,7 +11,10 @@ import com.cldev.search.cldevsearch.service.EsToolsService;
 import com.cldev.search.cldevsearch.ssdb.SSDB;
 import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
 import com.cldev.search.cldevsearch.util.CommonUtil;
+import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.settings.Settings;
@@ -29,6 +32,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -237,7 +241,10 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .endObject()));
                     count++;
                     if (count % limit == 0) {
-                        builder.get();
+                        int failureCount = 0;
+                        while (builder.get().hasFailures()) {
+                            System.out.println("failure count : " + ++failureCount);
+                        }
                         builder = esTemplate.getClient().prepareBulk();
                         System.out.println(count);
                     }
@@ -246,7 +253,10 @@ public class EsToolsServiceImpl implements EsToolsService {
                 inputStreamReader.close();
             }
             if (count % limit != 0) {
-                builder.get();
+                int failureCount = 0;
+                while (builder.get().hasFailures()) {
+                    System.out.println("failure count : " + ++failureCount);
+                }
             }
             System.out.println(count);
             preparedStatement.close();
@@ -292,25 +302,23 @@ public class EsToolsServiceImpl implements EsToolsService {
     @Override
     public String dayTaskLoadBlogData(BlogDataDTO blogDataDTO) {
         BulkRequestBuilder builder = esTemplate.getClient().prepareBulk();
-        for (BlogBO blog : blogDataDTO.getBlog()) {
-            String time = blog.getTime();
-            try {
+        List<BlogBO> blogTempList = new LinkedList<>();
+        try {
+            for (BlogBO blog : blogDataDTO.getBlog()) {
+                String time = blog.getTime();
+                blogTempList.add(new BlogBO().setArticle(blog.getArticle())
+                        .setTime(time.split(" ").length == 1 ?
+                                CommonUtil.dateToStamp(time + " 00:00:00") :
+                                CommonUtil.dateToStamp(time))
+                        .setUid(blog.getUid()).setMid(blog.getMid()));
                 builder.add(esTemplate.getClient().
-                        prepareIndex(blogDataDTO.getIndices(), "article").setSource(
-                        XContentFactory.jsonBuilder()
-                                .startObject()
-                                .field("uid", blog.getUid())
-                                .field("article", blog.getArticle())
-                                .field("time", time.split(" ").length == 1 ?
-                                        CommonUtil.dateToStamp(time + " 00:00:00") :
-                                        CommonUtil.dateToStamp(time))
-                                .endObject()));
-            } catch (IOException e) {
-                e.printStackTrace();
-                return "error";
+                        prepareIndex("wb-blog-mid", "mid", blog.getMid()).setSource(XContentFactory.jsonBuilder().startObject().endObject()));
             }
+            AbstractHostLoadProcess.load(builder, "main", esTemplate, blogTempList, blogDataDTO.getIndices());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "error";
         }
-        builder.get();
         return "success";
     }
 
@@ -363,6 +371,34 @@ public class EsToolsServiceImpl implements EsToolsService {
         return "force merge for blog indices start";
     }
 
+    @Override
+    public Object createIndicesMid() {
+        List<Object> res = new LinkedList<>();
+        String customIndices = "wb-blog-mid", customType = "mid", customAliases = "mid";
+        esTemplate.getClient().admin().indices().prepareCreate(customIndices)
+                .setSettings(Settings.builder()
+                        .put("index.number_of_shards", 1)
+                        .put("index.number_of_replicas", 2))
+                .execute().actionGet();
+        try {
+            esTemplate.getClient().admin().indices()
+                    .putMapping(Requests.putMappingRequest(customIndices).type(customType)
+                            .source(XContentFactory.jsonBuilder().startObject()
+                                    .startObject("_all")
+                                    .field("enabled", false)
+                                    .endObject()
+                                    .startObject("_source")
+                                    .field("enabled", false)
+                                    .endObject()
+                                    .endObject())).actionGet();
+            res.add(esTemplate.getClient().admin().indices().prepareAliases()
+                    .addAlias(customIndices, customAliases).execute().actionGet());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return res;
+    }
+
     private Indices getNewBlogIndices() {
         List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
         assert indicesList != null;
@@ -411,7 +447,7 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .endObject()
                                     .startObject("article")
                                     .field("type", "text")
-                                    .field("analyzer", "ik_max_word")
+                                    .field("analyzer", "ik_smart")
                                     .field("search_analyzer", "ik_smart")
                                     .field("doc_values", false)
                                     .endObject()
@@ -515,11 +551,11 @@ public class EsToolsServiceImpl implements EsToolsService {
                   }
                  */
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.type", "custom")
-                .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.tokenizer", "ik_max_word")
+                .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.tokenizer", "ik_smart")
                 .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert", "pinyin_filter")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.char_filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.type", "custom")
-                .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.tokenizer", "ik_max_word")
+                .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.tokenizer", "ik_smart")
                 .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert", "pinyin_filter")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.char_filter", "tsconvert")
                 /* setting filter properties

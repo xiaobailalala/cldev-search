@@ -34,6 +34,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class SearchConfig {
 
     private String labelMappingFile;
+    private boolean loadData;
 
     public String getLabelMappingFile() {
         return labelMappingFile;
@@ -43,4 +44,11 @@ public class SearchConfig {
         this.labelMappingFile = labelMappingFile;
     }
 
+    public boolean getLoadData() {
+        return loadData;
+    }
+
+    public void setLoadData(boolean loadData) {
+        this.loadData = loadData;
+    }
 }

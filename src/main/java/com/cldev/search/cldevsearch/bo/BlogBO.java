@@ -41,4 +41,5 @@ public class BlogBO {
     private String article;
     private String uid;
     private String time;
+    private String mid;
 }
