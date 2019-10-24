@@ -256,9 +256,6 @@ public class CalculationSearchFactory implements Runnable {
         this.searchLogInfo.append("result operator total : ").append(System.currentTimeMillis() - start).append("ms\n")
                 .append("-------------------- The total time of this search is ").append(System.currentTimeMillis() - this.searchTimeStart).append("ms --------------------");
         logger.info(this.searchLogInfo.toString());
-        for (SearchResVO searchResVO : this.resultUid) {
-            System.out.println(searchResVO.getUid());
-        }
     }
 
     private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {

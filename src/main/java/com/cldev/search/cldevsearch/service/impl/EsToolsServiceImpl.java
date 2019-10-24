@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.bo.BlogBO;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
 import com.cldev.search.cldevsearch.process.common.HostLoadDataProcessFactory;
@@ -11,17 +12,17 @@ import com.cldev.search.cldevsearch.service.EsToolsService;
 import com.cldev.search.cldevsearch.ssdb.SSDB;
 import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
 import com.cldev.search.cldevsearch.util.CommonUtil;
-import org.elasticsearch.action.DocWriteResponse;
-import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import redis.clients.jedis.Jedis;
 
@@ -32,7 +33,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -397,6 +397,32 @@ public class EsToolsServiceImpl implements EsToolsService {
             e.printStackTrace();
         }
         return res;
+    }
+
+    @Override
+    public String dayTaskUpdateUserInfo(List<UserInfoDTO> userInfoDTOS) {
+        Client client = esTemplate.getClient();
+        BulkRequestBuilder builder = client.prepareBulk();
+        for (UserInfoDTO item : userInfoDTOS) {
+            try {
+                XContentBuilder jsonBuilder = XContentFactory.jsonBuilder().startObject();
+                if (!ObjectUtils.isEmpty(item.getName()) && !StringUtils.isEmpty(item.getName())) {
+                    jsonBuilder = jsonBuilder.field("name", item.getName());
+                }
+                if (!ObjectUtils.isEmpty(item.getCity()) && !ObjectUtils.isEmpty(item.getProvince())) {
+                    jsonBuilder = jsonBuilder.field("address", generatorAddr(item.getProvince().toString(), item.getCity().toString()));
+                    jsonBuilder = jsonBuilder.field("province", generatorProvince(item.getProvince().toString()));
+                }
+                if (!ObjectUtils.isEmpty(item.getSex()) && !StringUtils.isEmpty(item.getSex())) {
+                    jsonBuilder = jsonBuilder.field("sex", item.getSex());
+                }
+                builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(jsonBuilder.endObject()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        builder.get();
+        return "success";
     }
 
     private Indices getNewBlogIndices() {

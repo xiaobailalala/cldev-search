@@ -89,6 +89,21 @@ public class FileTest {
     }
 
     @Test
+    public void csvParse() {
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\record.csv");
+        try (InputStream inputStream = new FileInputStream(csvFile);
+             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("time", "ip", "userId", "title", "msg", "equipment")
+                     .withSkipHeaderRecord(false))) {
+            System.out.println(csvRecords.getRecords().size());
+            for (CSVRecord record : csvRecords.getRecords()) {
+                System.out.println(record.get("time") + " " + record.get("ip") + " " + record.get("userId") + " " + record.get("title") + " " + record.get("msg") + " " + record.get("equipment"));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
     public void readCsv() {
         File csvFile = new File("C:\\Users\\cl24\\Desktop\\res.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);

@@ -10,6 +10,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.SearchHit;
@@ -70,7 +71,8 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
     protected BoolQueryBuilder resolverContext() {
         String article = searchConditionDTO.getContext();
         if (!StringUtils.isEmpty(article)) {
-            return this.boolQueryBuilder.must(new MatchQueryBuilder("article", article));
+            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("article", article));
+            return this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("article", article));
         }
         return null;
     }

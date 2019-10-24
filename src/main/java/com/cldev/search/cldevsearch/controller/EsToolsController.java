@@ -2,6 +2,7 @@ package com.cldev.search.cldevsearch.controller;
 
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.service.EsToolsService;
 import org.elasticsearch.action.DocWriteResponse;
@@ -127,6 +128,11 @@ public class EsToolsController {
     @GetMapping("/dayTask/forceMerge/blog")
     public String dayTaskForceMergeBlog() {
         return esToolsService.dayTaskForceMergeBlog();
+    }
+
+    @PostMapping("/dayTask/update/userInfo")
+    public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfoDTOS) {
+        return esToolsService.dayTaskUpdateUserInfo(userInfoDTOS);
     }
 
 }

@@ -2,6 +2,7 @@ package com.cldev.search.cldevsearch.service;
 
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 
 import java.util.List;
@@ -140,4 +141,13 @@ public interface EsToolsService {
      * @return execute status
      */
     Object createIndicesMid();
+
+    /**
+     * Tasks that need to be performed every day
+     * The updated number of users' info per day is imported into es,
+     * and the original number of users' info is updated
+     * @param userInfoDTOS User info
+     * @return Execution status
+     */
+    String dayTaskUpdateUserInfo(List<UserInfoDTO> userInfoDTOS);
 }
