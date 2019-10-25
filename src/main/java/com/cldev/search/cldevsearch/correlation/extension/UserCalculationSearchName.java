@@ -2,10 +2,13 @@ package com.cldev.search.cldevsearch.correlation.extension;
 
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchPhraseQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -50,8 +53,15 @@ public class UserCalculationSearchName extends UserCalculationSearch {
     protected BoolQueryBuilder resolverContext() {
         String context = this.searchConditionDTO.getContext();
         if (!StringUtils.isEmpty(context)) {
-            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", context));
-            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", context));
+            List<String> screenName = BeanUtil.searchRegistryConfig().getScreenName(context);
+            if (screenName.size() == 0) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", context));
+                return this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", context));
+            }
+            for (String name : screenName) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", name));
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", name));
+            }
             return this.boolQueryBuilder;
         }
         return null;

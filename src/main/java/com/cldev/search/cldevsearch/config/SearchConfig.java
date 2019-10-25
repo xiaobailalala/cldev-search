@@ -34,7 +34,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class SearchConfig {
 
     private String labelMappingFile;
+    private String nameMappingFile;
     private boolean loadData;
+
+    public String getNameMappingFile() {
+        return nameMappingFile;
+    }
+
+    public void setNameMappingFile(String nameMappingFile) {
+        this.nameMappingFile = nameMappingFile;
+    }
 
     public String getLabelMappingFile() {
         return labelMappingFile;

@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.controller;
 
+import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.service.EsSearchService;
 import com.cldev.search.cldevsearch.util.ResultApi;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
@@ -49,7 +50,7 @@ public class EsSearchController {
     }
 
     @PostMapping("/uid/search")
-    public ResultApi<List<SearchResVO>> uidSearch(@RequestBody SearchConditionDTO searchConditionDTO) {
+    public ResultApi<List<SearchResultTempBO>> uidSearch(@RequestBody SearchConditionDTO searchConditionDTO) {
         return ResultApi.ok(esSearchService.uidSearch(searchConditionDTO));
     }
 

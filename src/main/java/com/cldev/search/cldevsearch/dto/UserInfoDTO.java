@@ -44,5 +44,7 @@ public class UserInfoDTO {
     private Integer sex;
     private Integer province;
     private Integer city;
+    private String description;
+    private String reason;
 
 }

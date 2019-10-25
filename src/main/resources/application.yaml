@@ -5,9 +5,18 @@ spring:
       cluster-nodes: 192.168.2.76:9300
       repositories:
         enabled: true
+  profiles:
+    active: dev
 server:
   port: 8989
 
 search-config:
   label-mapping-file: "label-mapping-02"
+  name-mapping-file: "name-mapping"
   load-data: false
+---
+spring:
+  profiles: dev
+---
+spring:
+  profiles: pro

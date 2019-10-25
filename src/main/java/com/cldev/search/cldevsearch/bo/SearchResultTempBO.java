@@ -80,7 +80,12 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
      */
     private Integer sex;
 
-    public SearchResultTempBO(String uid, Integer wbFans, Float score, Float correlationScore, String createTime, String name, List<Integer> labels, String address, String province, Integer sex) {
+    /**
+     * User interaction data
+     */
+    private ReportBO report;
+
+    public SearchResultTempBO(String uid, Integer wbFans, Float score, Float correlationScore, String createTime, String name, List<Integer> labels, String address, String province, Integer sex, ReportBO report) {
         super(uid, wbFans, score);
         this.correlationScore = correlationScore;
         this.createTime = createTime;
@@ -89,23 +94,18 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
         this.address = address;
         this.province = province;
         this.sex = sex;
+        this.report = report;
     }
 
     @Override
     public int compareTo(SearchResultTempBO o) {
-//        if (o.getLabelCount() > this.getLabelCount()) {
-//            return 1;
-//        } else if (o.getLabelCount() < this.getLabelCount()) {
-//            return -1;
-//        } else {
-            if (o.getCorrelationScore() > this.getCorrelationScore()) {
-                return 1;
-            } else if (o.getCorrelationScore() < this.getCorrelationScore()) {
-                return -1;
-            } else {
-                return 0;
-            }
-//        }
+        if (o.getCorrelationScore() > this.getCorrelationScore()) {
+            return 1;
+        } else if (o.getCorrelationScore() < this.getCorrelationScore()) {
+            return -1;
+        } else {
+            return 0;
+        }
     }
 
     @Override
@@ -121,6 +121,8 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
                 ", uid=" + getUid() +
                 ", fans=" + getWbFans() +
                 ", score=" + getScore() +
+                ", report=" + getReport().toString() +
                 '}';
     }
+
 }

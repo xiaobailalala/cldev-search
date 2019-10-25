@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.correlation;
 
+import com.cldev.search.cldevsearch.bo.ReportBO;
 import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.correlation.builder.AddressBoolQueryBuilder;
 import com.cldev.search.cldevsearch.correlation.builder.FansAgeBoolQueryBuilder;
@@ -8,12 +9,10 @@ import com.cldev.search.cldevsearch.correlation.builder.InterestBoolQueryBuilder
 import com.cldev.search.cldevsearch.correlation.process.AbstractCalculationBuilder;
 import com.cldev.search.cldevsearch.correlation.process.KolCalculation;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchQueryBuilder;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.util.ObjectUtils;
@@ -79,7 +78,14 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
     protected BoolQueryBuilder resolverContext() {
         String context = this.searchConditionDTO.getContext();
         if (!StringUtils.isEmpty(context)) {
-            return this.boolQueryBuilder.must(new MatchQueryBuilder("description", context));
+            List<String> screenName = BeanUtil.searchRegistryConfig().getScreenName(context);
+            if (screenName.size() == 0) {
+                return this.boolQueryBuilder.must(new MatchQueryBuilder("description", context));
+            }
+            for (String name : screenName) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("description", name));
+            }
+            return this.boolQueryBuilder.should(new MatchQueryBuilder("description", context));
         }
         return null;
     }
@@ -152,12 +158,17 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
         this.searchLogInfo.append("------ score normalization : ").append(System.currentTimeMillis() - start).append("ms\n");
         for (int item = 0; item < hits.length; item++) {
             Map<String, Object> source = hits[item].getSourceAsMap();
+            String[] infos = source.get("info").toString().split("-");
             searchResultTempBOS.add(new SearchResultTempBO(hits[item].getId(),
                     Integer.parseInt(source.get("fans").toString()),
                     Float.parseFloat(source.get("score").toString()),
                     score[item], null, source.get("name").toString(),
                     (List<Integer>) source.get("label"), source.get("address").toString(),
-                    source.get("province").toString(), Integer.parseInt(source.get("sex").toString())));
+                    source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
+                    new ReportBO().setAttitudeSum(Integer.parseInt(infos[0])).setAttitudeMax(Integer.parseInt(infos[1])).setAttitudeMedian(Integer.parseInt(infos[2]))
+                            .setCommentSum(Integer.parseInt(infos[3])).setCommentMax(Integer.parseInt(infos[4])).setCommentMedian(Integer.parseInt(infos[5]))
+                            .setRepostSum(Integer.parseInt(infos[6])).setRepostMax(Integer.parseInt(infos[7])).setRepostMedian(Integer.parseInt(infos[8]))
+                            .setMblogTotal(Integer.parseInt(infos[9])).setReleaseMblogFrequency(Double.parseDouble(infos[10]))));
         }
         return searchResultTempBOS;
     }

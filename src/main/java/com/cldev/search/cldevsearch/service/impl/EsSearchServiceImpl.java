@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.service.impl;
 
+import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.correlation.process.CalculationSearchFactory;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.service.EsSearchService;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -50,7 +52,7 @@ public class EsSearchServiceImpl implements EsSearchService {
     }
 
     @Override
-    public List<SearchResVO> uidSearch(SearchConditionDTO searchConditionDTO) {
+    public List<SearchResultTempBO> uidSearch(SearchConditionDTO searchConditionDTO) {
         CalculationSearchFactory calculationSearchFactory = CalculationSearchFactory.buildCalculation();
         calculationSearchFactory.calculationBuilder(searchConditionDTO, elasticsearchTemplate.getClient()).searchStart();
         try {
@@ -60,7 +62,5 @@ public class EsSearchServiceImpl implements EsSearchService {
         }
         return calculationSearchFactory.searchEnd();
     }
-
-
 
 }

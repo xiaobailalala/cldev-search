@@ -3,7 +3,7 @@ package com.cldev.search.cldevsearch.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.bo.BlogBO;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
-import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserReportDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
@@ -116,7 +116,7 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("enabled", false)
                                     .endObject()
                                     .startObject("_source")
-                                    .field("excludes", Collections.singletonList("description"))
+                                    .field("excludes", Arrays.asList("description", "reason"))
                                     .endObject()
                                     .startObject("properties")
                                     .startObject("uid")
@@ -130,6 +130,12 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("doc_values", false)
                                     .endObject()
                                     .startObject("name")
+                                    .field("type", "text")
+                                    .field("analyzer", "ik_tsconvert_pinyin_analyzer")
+                                    .field("search_analyzer", "ik_tsconvert_pinyin_analyzer_search")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("reason")
                                     .field("type", "text")
                                     .field("analyzer", "ik_tsconvert_pinyin_analyzer")
                                     .field("search_analyzer", "ik_tsconvert_pinyin_analyzer_search")
@@ -159,6 +165,10 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("type", "byte")
                                     .field("doc_values", false)
                                     .endObject()
+                                    .startObject("info")
+                                    .field("type", "keyword")
+                                    .field("doc_values", false)
+                                    .endObject()
                                     .endObject()
                                     .endObject())).actionGet();
             res.add(esTemplate.getClient().admin().indices().prepareAliases()
@@ -176,6 +186,7 @@ public class EsToolsServiceImpl implements EsToolsService {
         File scoreMap = new File("C:\\Users\\cl24\\Desktop\\mysql.csv");
         InputStreamReader input;
         Map<String, String> scoreMapping = new HashMap<>(800000);
+        Map<String, String> userInfoMap = new HashMap<>(1179648);
         try {
             input = new InputStreamReader(new FileInputStream(scoreMap));
             BufferedReader bufferedReader = new BufferedReader(input);
@@ -185,6 +196,15 @@ public class EsToolsServiceImpl implements EsToolsService {
             }
             bufferedReader.close();
             input.close();
+            File userInfoFile = new File("userInfo");
+            FileReader fileReader = new FileReader(userInfoFile);
+            BufferedReader reader = new BufferedReader(fileReader);
+            String msg;
+            while ((msg = reader.readLine()) != null) {
+                userInfoMap.put(msg.split("-")[0], msg.substring(msg.indexOf("-") + 1));
+            }
+            reader.close();
+            fileReader.close();
         } catch (IOException e1) {
             e1.printStackTrace();
         }
@@ -238,6 +258,8 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("fans", fans == null ? 0 : fans)
                                     .field("score", score == null ? 0.0f : Float.parseFloat(score))
                                     .field("label", labelArr)
+                                    .field("reason", jsonObject.getString("verified_reason"))
+                                    .field("info", userInfoMap.get(uid))
                                     .endObject()));
                     count++;
                     if (count % limit == 0) {
@@ -323,14 +345,28 @@ public class EsToolsServiceImpl implements EsToolsService {
     }
 
     @Override
-    public String dayTaskUpdateUserFans(List<UserFansDTO> userFansDTOList) {
+    public String dayTaskUpdateUserReports(List<UserReportDTO> userReportDTOList) {
         Client client = esTemplate.getClient();
         BulkRequestBuilder builder = client.prepareBulk();
-        for (UserFansDTO item : userFansDTOList) {
+        for (UserReportDTO item : userReportDTOList) {
+            String info = item.getAttitudeSum() + "-" +
+                    item.getAttitudeMax() + "-" +
+                    item.getAttitudeMedian() + "-" +
+                    item.getCommentSum() + "-" +
+                    item.getCommentMax() + "-" +
+                    item.getCommentMedian() + "-" +
+                    item.getRepostSum() + "-" +
+                    item.getRepostMax() + "-" +
+                    item.getRepostMedian() + "-" +
+                    item.getMblogTotal() + "-" +
+                    item.getReleaseMblogFrequency();
             try {
-                builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(XContentFactory.jsonBuilder()
-                        .startObject()
-                        .field("fans", item.getFans())
+                XContentBuilder jsonBuilder = XContentFactory.jsonBuilder().startObject();
+                if (!ObjectUtils.isEmpty(item.getFans()) && !StringUtils.isEmpty(item.getFans())) {
+                    jsonBuilder = jsonBuilder.field("fans", item.getFans());
+                }
+                builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(jsonBuilder
+                        .field("info", info)
                         .endObject()));
             } catch (IOException e) {
                 e.printStackTrace();
@@ -415,6 +451,12 @@ public class EsToolsServiceImpl implements EsToolsService {
                 }
                 if (!ObjectUtils.isEmpty(item.getSex()) && !StringUtils.isEmpty(item.getSex())) {
                     jsonBuilder = jsonBuilder.field("sex", item.getSex());
+                }
+                if (!ObjectUtils.isEmpty(item.getDescription()) && !StringUtils.isEmpty(item.getDescription())) {
+                    jsonBuilder = jsonBuilder.field("description", item.getDescription());
+                }
+                if (!ObjectUtils.isEmpty(item.getReason()) && !StringUtils.isEmpty(item.getReason())) {
+                    jsonBuilder = jsonBuilder.field("reason", item.getReason());
                 }
                 builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(jsonBuilder.endObject()));
             } catch (IOException e) {
@@ -578,11 +620,13 @@ public class EsToolsServiceImpl implements EsToolsService {
                  */
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.type", "custom")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.tokenizer", "ik_smart")
-                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert", "pinyin_filter")
+//                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert", "pinyin_filter")
+                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.char_filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.type", "custom")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.tokenizer", "ik_smart")
-                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert", "pinyin_filter")
+//                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert", "pinyin_filter")
+                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.char_filter", "tsconvert")
                 /* setting filter properties
                   "filter": {
@@ -605,11 +649,11 @@ public class EsToolsServiceImpl implements EsToolsService {
                 .put("analysis.filter.tsconvert.delimiter", "#")
                 .put("analysis.filter.tsconvert.keep_both", false)
                 .put("analysis.filter.tsconvert.convert_type", "t2s")
-                .put("analysis.filter.pinyin_filter.type", "pinyin")
-                .put("analysis.filter.pinyin_filter.keep_first_letter", true)
-                .put("analysis.filter.pinyin_filter.keep_separate_first_letter", true)
-                .put("analysis.filter.pinyin_filter.keep_original", false)
-                .put("analysis.filter.pinyin_filter.lowercase", true)
+//                .put("analysis.filter.pinyin_filter.type", "pinyin")
+//                .put("analysis.filter.pinyin_filter.keep_first_letter", true)
+//                .put("analysis.filter.pinyin_filter.keep_separate_first_letter", true)
+//                .put("analysis.filter.pinyin_filter.keep_original", false)
+//                .put("analysis.filter.pinyin_filter.lowercase", true)
                 /* setting char_filter properties
                   "char_filter": {
                     "tsconvert": {

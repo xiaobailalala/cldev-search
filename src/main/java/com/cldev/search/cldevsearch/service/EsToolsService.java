@@ -1,7 +1,7 @@
 package com.cldev.search.cldevsearch.service;
 
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
-import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserReportDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 
@@ -109,10 +109,10 @@ public interface EsToolsService {
      * The updated number of users' fans per day is imported into es,
      * and the original number of users' fans is updated
      *
-     * @param userFansDTOList User fans set
+     * @param userReportDTOList User fans set
      * @return Execution status
      */
-    String dayTaskUpdateUserFans(List<UserFansDTO> userFansDTOList);
+    String dayTaskUpdateUserReports(List<UserReportDTO> userReportDTOList);
 
     /**
      * Tasks that need to be performed every day

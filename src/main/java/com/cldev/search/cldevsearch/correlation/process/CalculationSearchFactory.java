@@ -5,11 +5,10 @@ import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import com.cldev.search.cldevsearch.util.ChinesePinyinUtil;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import com.cldev.search.cldevsearch.util.CommonCallBack;
 import com.cldev.search.cldevsearch.util.CommonUtil;
 import com.cldev.search.cldevsearch.util.SimilarityUtil;
-import com.cldev.search.cldevsearch.vo.SearchResVO;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hankcs.hanlp.HanLP;
 import lombok.Getter;
@@ -74,7 +73,7 @@ public class CalculationSearchFactory implements Runnable {
 
     private ConcurrentLinkedQueue<SearchResultTempBO> userNameIndicesResult = new ConcurrentLinkedQueue<>();
 
-    private List<SearchResVO> resultUid = new LinkedList<>();
+    private List<SearchResultTempBO> resultUid = new LinkedList<>();
 
     private StringBuffer searchLogInfo = new StringBuffer("The search process info : \n");
 
@@ -95,6 +94,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 异步线程进行多线程搜索
+     *
      * @param callBack 回调接口-异步任务主体
      */
     private void kolCalculationResultProcess(CommonCallBack callBack) {
@@ -164,14 +164,16 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 获取最终结果集
+     *
      * @return 最终的数据结果集
      */
-    public List<SearchResVO> searchEnd() {
+    public List<SearchResultTempBO> searchEnd() {
         return this.resultUid;
     }
 
     /**
      * 获取线程屏障对象
+     *
      * @return 线程屏障对象
      */
     public CyclicBarrier getCyclicBarrier() {
@@ -180,6 +182,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 搜索内容是否含有过滤条件
+     *
      * @return 是否含有过滤条件，true为含有，false为不含
      */
     private boolean isCondition() {
@@ -256,37 +259,57 @@ public class CalculationSearchFactory implements Runnable {
         this.searchLogInfo.append("result operator total : ").append(System.currentTimeMillis() - start).append("ms\n")
                 .append("-------------------- The total time of this search is ").append(System.currentTimeMillis() - this.searchTimeStart).append("ms --------------------");
         logger.info(this.searchLogInfo.toString());
+        for (SearchResultTempBO item : resultUid) {
+            System.out.println(item.getUid() + " " + item.getCorrelationScore() + " " + item.getReport());
+        }
+        for (SearchResultTempBO item : resultUid) {
+            System.out.println(item.getUid() + " " + item.getCorrelationScore() + " " + item.getReport());
+        }
+        System.out.println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+        for (SearchResultTempBO item : resultUid) {
+            if (item.getReport().getReleaseMblogFrequency() >= 100.0) {
+                System.out.println(item.getUid() + " " + item.getCorrelationScore() + " " + item.getName() + " " + item.getReport().getReleaseMblogFrequency());
+            }
+        }
     }
 
     private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {
         /* 根据用户名进行字符串相似度排除 */
         long similarityStart = System.currentTimeMillis();
+        List<String> screenName = BeanUtil.searchRegistryConfig().getScreenName(condition.getContext());
+        if (screenName.size() == 0) {
+            screenName.add(condition.getContext());
+        }
+        item:
         for (SearchResultTempBO userName : userNameResult) {
-            /* 优先根据原文中字比对 */
-            double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), condition.getContext().toLowerCase());
-            if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
-                continue;
-            }
-            /* 根据繁-简转化后的中字比对 */
-            double compareInTraditional  = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
-                    HanLP.convertToSimplifiedChinese(condition.getContext()).toLowerCase());
-            if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
-                continue;
-            }
-            /* 根据中-拼音转换后的拼音全拼比对 */
-            double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
-                    ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
-            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
-                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
-                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
+            for (String name : screenName) {
+                /* 优先根据原文中字比对 */
+                double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), name.toLowerCase());
+                if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
+                    continue item;
+                }
+                /* 根据繁-简转化后的中字比对 */
+                double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
+                        HanLP.convertToSimplifiedChinese(name).toLowerCase());
+                if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
+                    continue item;
+                }
+                /* 根据中-拼音转换后的拼音全拼比对 */
+//            double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
+//                    ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
+//            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
+//                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
+//                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
+//                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
+//            }
                 /* 根据中-拼音转换后的拼音首字母比对 */
-            } /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),
+             /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),
                     ChinesePinyinUtil.getFirstLettersLo(condition.getContext())) >= weightConfig().getUsernameSimilarityPinyinHead()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
             }*/
+            }
         }
         this.searchLogInfo.append("similarity time : ").append(System.currentTimeMillis() - similarityStart).append("ms\n");
     }
@@ -382,13 +405,6 @@ public class CalculationSearchFactory implements Runnable {
             }
             return sortBySimilarityScore;
         }
-    }
-
-    /**
-     * 官微处理
-     */
-    private void OfficialMicroOperator() {
-
     }
 
 }

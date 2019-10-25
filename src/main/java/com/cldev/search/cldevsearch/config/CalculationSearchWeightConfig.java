@@ -156,7 +156,7 @@ public class CalculationSearchWeightConfig {
      * the higher the score, the higher the proportion of the opposite
      */
     @Getter
-    private volatile float blogCorrelationScoreWeight = 0.5f;
+    private volatile float blogCorrelationScoreWeight = 0.6f;
 
     /**
      * On the final result set need into influence score,
@@ -167,7 +167,7 @@ public class CalculationSearchWeightConfig {
      * the higher the score, the higher the proportion of the opposite
      */
     @Getter
-    private volatile float blogInfluenceScoreWeight = 0.5f;
+    private volatile float blogInfluenceScoreWeight = 0.4f;
 
     /**
      * Influence score and relevance score are calculated by means of indicating whether the right of use is enabled or not.
@@ -177,7 +177,7 @@ public class CalculationSearchWeightConfig {
      * and the final score is calculated by product
      */
     @Getter
-    private volatile boolean influenceWithWeight = false;
+    private volatile boolean influenceWithWeight = true;
 
     /**
      * Some weights require a sum of 1,
@@ -190,7 +190,7 @@ public class CalculationSearchWeightConfig {
         config.put("blog-decay", decay());
         config.put("name-similarity", nameSimilarity());
         config.put("comprehensive-process", comprehensive());
-        config.put("label-mapping", BeanUtil.labelRegistryConfig().getLabels());
+        config.put("label-mapping", BeanUtil.searchRegistryConfig().getLabels());
         return config;
     }
 

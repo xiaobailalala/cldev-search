@@ -90,13 +90,13 @@ public class FileTest {
 
     @Test
     public void csvParse() {
-        File csvFile = new File("C:\\Users\\cl24\\Desktop\\record.csv");
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\search_star_201910.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);
-             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("time", "ip", "userId", "title", "msg", "equipment")
-                     .withSkipHeaderRecord(false))) {
-            System.out.println(csvRecords.getRecords().size());
+             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8),
+                     CSVFormat.DEFAULT.withHeader("uid", "screen_name", "followers_count", "desc1", "search_string")
+                     .withSkipHeaderRecord(true))) {
             for (CSVRecord record : csvRecords.getRecords()) {
-                System.out.println(record.get("time") + " " + record.get("ip") + " " + record.get("userId") + " " + record.get("title") + " " + record.get("msg") + " " + record.get("equipment"));
+                printLoadLog("name-mapping", record.get("screen_name") + "@@@@@@@@" + record.get("search_string"));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -157,7 +157,7 @@ public class FileTest {
     public void searchLabelFromRedis() {
         Jedis jedis = new Jedis("192.168.2.11", 6399);
         jedis.auth("cldev");
-        String item = jedis.get("6760832163");
+        String item = jedis.get("1748075785");
         System.out.println(item);
     }
 
@@ -194,6 +194,28 @@ public class FileTest {
                 }
                 String res = result.length() == 0 ? "" : result.substring(0, result.length() - 1);
                 jedis.set(record.get("uid"), res);
+            }
+        }
+    }
+
+    private void printLoadLog(String fileName, String msg) {
+        File file = new File("config\\" + fileName);
+        FileOutputStream fileOutputStream = null;
+        try {
+            fileOutputStream = new FileOutputStream(file, true);
+            byte[] contentInBytes = (msg + "\r\n").getBytes();
+            fileOutputStream.write(contentInBytes);
+            fileOutputStream.flush();
+            fileOutputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fileOutputStream != null) {
+                    fileOutputStream.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
