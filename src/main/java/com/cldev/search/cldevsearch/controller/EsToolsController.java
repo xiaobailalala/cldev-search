@@ -48,12 +48,10 @@ import java.util.Map;
 public class EsToolsController {
 
     private final EsToolsService esToolsService;
-    private final AsyncTaskUtil asyncTaskUtil;
 
     @Autowired
-    public EsToolsController(EsToolsService esToolsService, AsyncTaskUtil asyncTaskUtil) {
+    public EsToolsController(EsToolsService esToolsService) {
         this.esToolsService = esToolsService;
-        this.asyncTaskUtil = asyncTaskUtil;
     }
 
     @GetMapping("/loadData")
@@ -129,57 +127,6 @@ public class EsToolsController {
     @PostMapping("/dayTask/update/userInfo")
     public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfoDTOS) {
         return esToolsService.dayTaskUpdateUserInfo(userInfoDTOS);
-    }
-
-    @GetMapping("/test")
-    public String test() {
-        Map<String, String> userInfoMap = new HashMap<>(1179648);
-        try {
-            File userInfoFile = new File("userInfo");
-            FileReader fileReader = new FileReader(userInfoFile);
-            BufferedReader reader = new BufferedReader(fileReader);
-            String msg;
-            while ((msg = reader.readLine()) != null) {
-                userInfoMap.put(msg.split("-")[0], msg.substring(msg.indexOf("-") + 1));
-            }
-            reader.close();
-            fileReader.close();
-            File csvFile = new File("C:\\Users\\cl24\\Desktop\\uid_80w.csv");
-            InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(csvFile));
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            String uid;
-            List<UserReportDTO> report = new LinkedList<>();
-            int count = 0, limit = 5000;
-            while ((uid = bufferedReader.readLine()) != null) {
-                String[] infos = userInfoMap.get(uid).split("-");
-                report.add(new UserReportDTO(Integer.parseInt(infos[0]),
-                        Integer.parseInt(infos[1]),
-                        Integer.parseInt(infos[2]),
-                        Integer.parseInt(infos[3]),
-                        Integer.parseInt(infos[4]),
-                        Integer.parseInt(infos[5]),
-                        Integer.parseInt(infos[6]),
-                        Integer.parseInt(infos[7]),
-                        Integer.parseInt(infos[8]),
-                        Integer.parseInt(infos[9]),
-                        Double.parseDouble(infos[10]), uid, null));
-                count++;
-                if (count % limit == 0) {
-                    List<UserReportDTO> users = new LinkedList<>(report);
-                    asyncTaskUtil.asyncCustomTask(() -> esToolsService.dayTaskUpdateUserReports(users));
-                    report = new LinkedList<>();
-                    System.out.println(count);
-                }
-            }
-            if (count % limit != 0) {
-                List<UserReportDTO> users = new LinkedList<>(report);
-                asyncTaskUtil.asyncCustomTask(() -> esToolsService.dayTaskUpdateUserReports(users));
-                System.out.println(count);
-            }
-        } catch (IOException e1) {
-            e1.printStackTrace();
-        }
-        return "start";
     }
 
 }

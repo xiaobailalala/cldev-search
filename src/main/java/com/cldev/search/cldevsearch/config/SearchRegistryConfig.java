@@ -1,10 +1,8 @@
 package com.cldev.search.cldevsearch.config;
 
 import com.cldev.search.cldevsearch.util.BeanUtil;
-import org.apache.commons.collections4.MultiMapUtils;
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
-import org.junit.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -56,6 +54,7 @@ public class SearchRegistryConfig implements CommandLineRunner {
 
     private volatile ConcurrentHashMap<String, Integer> labels;
     private volatile MultiValuedMap<String, String> nameMapping;
+    private volatile Set<String> newsMedia;
 
     private final static String ENVIRONMENT_DEV = "dev";
     private final static String ENVIRONMENT_PRO = "pro";
@@ -69,10 +68,15 @@ public class SearchRegistryConfig implements CommandLineRunner {
             if (ObjectUtils.isEmpty(BeanUtil.searchConfig().getNameMappingFile())) {
                 throw new RuntimeException("Must specify The name mapping file");
             }
+            if (ObjectUtils.isEmpty(BeanUtil.searchConfig().getNewsMediaFile())) {
+                throw new RuntimeException("Must specify The news media file");
+            }
             labels = new ConcurrentHashMap<>(80);
             nameMapping = new ArrayListValuedHashMap<>(2048);
+            newsMedia = Collections.synchronizedSet(new HashSet<>(1024));
             loadLabelMapping(BeanUtil.searchConfig().getLabelMappingFile());
             loadNameMapping(BeanUtil.searchConfig().getNameMappingFile());
+            loadNewsMedia(BeanUtil.searchConfig().getNewsMediaFile());
         }
     }
 
@@ -93,6 +97,16 @@ public class SearchRegistryConfig implements CommandLineRunner {
             String[] str = tempString.split("@@@@@@@@");
             nameMapping.put(str[0], str[1]);
             nameMapping.put(str[1], str[0]);
+        }
+        reader.close();
+    }
+
+    public void loadNewsMedia(String newsMediaFile) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(fileChecked(newsMediaFile)));
+        String tempString;
+        while ((tempString = reader.readLine()) != null) {
+            String[] str = tempString.split(" {6}");
+            newsMedia.add(str[0]);
         }
         reader.close();
     }
@@ -118,6 +132,10 @@ public class SearchRegistryConfig implements CommandLineRunner {
         return filterName.stream().distinct().collect(Collectors.toList());
     }
 
+    public Set<String> getNewsMedia() {
+        return this.newsMedia;
+    }
+
     public String updateLabelMapping(String fileName) {
         labels = new ConcurrentHashMap<>(80);
         try {
@@ -134,6 +152,16 @@ public class SearchRegistryConfig implements CommandLineRunner {
             loadNameMapping(fileName);
         } catch (IOException e) {
             return "Refresh the name mapping error";
+        }
+        return "success";
+    }
+
+    public String updateNewsMedia(String fileName) {
+        newsMedia = Collections.synchronizedSet(new HashSet<>(1024));
+        try {
+            loadNewsMedia(fileName);
+        } catch (IOException e) {
+            return "Refresh the news media error";
         }
         return "success";
     }

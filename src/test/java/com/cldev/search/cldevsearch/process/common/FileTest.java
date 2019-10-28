@@ -90,14 +90,20 @@ public class FileTest {
 
     @Test
     public void csvParse() {
-        File csvFile = new File("C:\\Users\\cl24\\Desktop\\search_star_201910.csv");
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\uid_name_frequency_gte_100_blue.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8),
-                     CSVFormat.DEFAULT.withHeader("uid", "screen_name", "followers_count", "desc1", "search_string")
-                     .withSkipHeaderRecord(true))) {
+                     CSVFormat.DEFAULT.withHeader("uid", "name", "frequency")
+                     .withSkipHeaderRecord(false))) {
+            int count = 0;
             for (CSVRecord record : csvRecords.getRecords()) {
-                printLoadLog("name-mapping", record.get("screen_name") + "@@@@@@@@" + record.get("search_string"));
+                String name = record.get("name");
+                if (name.contains("报") || name.contains("刊") || name.contains("新闻") || name.contains("国") || name.contains("财经") || name.contains("邪教")) {
+                    printLoadLog("newsMedia", record.get("uid") + "      " + name + "      " + record.get("frequency"));
+                    count++;
+                }
             }
+            System.out.println(count);
         } catch (IOException e) {
             e.printStackTrace();
         }

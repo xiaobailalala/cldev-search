@@ -179,6 +179,27 @@ public class CalculationSearchWeightConfig {
     @Getter
     private volatile boolean influenceWithWeight = true;
 
+    @Getter
+    private volatile float attitudeWeight = 2.0f;
+
+    @Getter
+    private volatile float commentWeight = 1.0f;
+
+    @Getter
+    private volatile float repostWeight = 2.0f;
+
+    @Getter
+    private volatile float interactionUpperLimit = 1.0f;
+
+    @Getter
+    private volatile float frequencyUpperLimit = 1.0f;
+
+    @Getter
+    private volatile float differenceValueDefaultPercent = 0.01f;
+
+    @Getter
+    private volatile float newsMediaDecayFactor = 0.9f;
+
     /**
      * Some weights require a sum of 1,
      * so define the complementary factor to determine the sum of complementary weights

@@ -39,34 +39,34 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class ReportBO {
     /** 博文点赞总量 */
-    private Integer attitudeSum;
+    private Long attitudeSum;
 
     /** 博文点赞最大值 */
-    private Integer attitudeMax;
+    private Long attitudeMax;
 
     /** 博文点赞中位数 */
-    private Integer attitudeMedian;
+    private Long attitudeMedian;
 
     /** 博文评论总量 */
-    private Integer commentSum;
+    private Long commentSum;
 
     /** 博文评论最大值 */
-    private Integer commentMax;
+    private Long commentMax;
 
     /** 博文评论中位数 */
-    private Integer commentMedian;
+    private Long commentMedian;
 
     /** 博文转发总量 */
-    private Integer repostSum;
+    private Long repostSum;
 
     /** 博文转发最大值 */
-    private Integer repostMax;
+    private Long repostMax;
 
     /** 博文转发中位数 */
-    private Integer repostMedian;
+    private Long repostMedian;
 
     /** 博文总量 */
-    private Integer mblogTotal;
+    private Long mblogTotal;
 
     /** 周发文频率 */
     private Double releaseMblogFrequency;

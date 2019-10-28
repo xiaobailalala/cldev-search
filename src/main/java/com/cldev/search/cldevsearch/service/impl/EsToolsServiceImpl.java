@@ -372,7 +372,10 @@ public class EsToolsServiceImpl implements EsToolsService {
                 e.printStackTrace();
             }
         }
-        builder.get();
+        int count = 0;
+        while (builder.get().hasFailures()) {
+            System.out.println("update reports error" + count++);
+        }
         return "success";
     }
 

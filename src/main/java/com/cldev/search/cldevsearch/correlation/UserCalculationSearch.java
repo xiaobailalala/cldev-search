@@ -165,10 +165,17 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
                     score[item], null, source.get("name").toString(),
                     (List<Integer>) source.get("label"), source.get("address").toString(),
                     source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
-                    new ReportBO().setAttitudeSum(Integer.parseInt(infos[0])).setAttitudeMax(Integer.parseInt(infos[1])).setAttitudeMedian(Integer.parseInt(infos[2]))
-                            .setCommentSum(Integer.parseInt(infos[3])).setCommentMax(Integer.parseInt(infos[4])).setCommentMedian(Integer.parseInt(infos[5]))
-                            .setRepostSum(Integer.parseInt(infos[6])).setRepostMax(Integer.parseInt(infos[7])).setRepostMedian(Integer.parseInt(infos[8]))
-                            .setMblogTotal(Integer.parseInt(infos[9])).setReleaseMblogFrequency(Double.parseDouble(infos[10]))));
+                    new ReportBO().setAttitudeSum(Long.parseLong(infos[0]))
+                            .setAttitudeMax(Long.parseLong(infos[1]))
+                            .setAttitudeMedian(Long.parseLong(infos[2]))
+                            .setCommentSum(Long.parseLong(infos[3]))
+                            .setCommentMax(Long.parseLong(infos[4]))
+                            .setCommentMedian(Long.parseLong(infos[5]))
+                            .setRepostSum(Long.parseLong(infos[6]))
+                            .setRepostMax(Long.parseLong(infos[7]))
+                            .setRepostMedian(Long.parseLong(infos[8]))
+                            .setMblogTotal(Long.parseLong(infos[9]))
+                            .setReleaseMblogFrequency(Double.parseDouble(infos[10]))));
         }
         return searchResultTempBOS;
     }
