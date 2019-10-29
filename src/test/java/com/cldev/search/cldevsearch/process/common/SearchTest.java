@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.process.common;
 
+import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.correlation.builder.AddressBoolQueryBuilder;
 import com.cldev.search.cldevsearch.ssdb.SSDB;
 import org.apache.commons.csv.CSVFormat;
@@ -59,8 +60,9 @@ public class SearchTest {
     @Test
     public void searchFromSsDb() throws Exception {
         SSDB ssdb = new SSDB("192.168.2.55", 8889);
-        byte[] userinfos = ssdb.hget("userinfo", "1255795640");
+        byte[] userinfos = ssdb.hget("userinfo", "3069348215");
         String userInfo = new String(userinfos);
+        String description = JSONObject.parseObject(userInfo).getString("description");
         System.out.println(userInfo);
     }
 

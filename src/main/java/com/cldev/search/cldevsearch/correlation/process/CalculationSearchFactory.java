@@ -5,7 +5,6 @@ import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import com.cldev.search.cldevsearch.util.BeanUtil;
 import com.cldev.search.cldevsearch.util.CommonCallBack;
 import com.cldev.search.cldevsearch.util.CommonUtil;
 import com.cldev.search.cldevsearch.util.SimilarityUtil;
@@ -141,6 +140,7 @@ public class CalculationSearchFactory implements Runnable {
                     long start = System.currentTimeMillis();
                     UserCalculationSearch userCalculationSearch = new UserCalculationSearch(this.condition);
                     this.userIndicesResult.addAll(userCalculationSearch.initSearchCondition().getResult(this.client));
+                    System.out.println(this.userIndicesResult.size());
                     searchLogInfo.append(userCalculationSearch.getSearchLogInfo()).append("search user total: ").append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.userIndicesResult.addAll(new ArrayList<>());
@@ -486,17 +486,40 @@ public class CalculationSearchFactory implements Runnable {
         @Override
         @SuppressWarnings("all")
         public int compareTo(ResultSortByInteractionAbility o) {
-            int compare = o.medianScore.compareTo(this.medianScore);
-            if (compare != 0) {
-                return compare;
+            int medianScoreCompare = Float.compare(o.medianScore, this.medianScore);
+            if (medianScoreCompare != 0) {
+                return medianScoreCompare;
+            }
+            if (this.blogTotal == 0) {
+                return -1;
             }
             Float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
                     this.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
                     this.repostSum * weightConfig().getRepostWeight() / this.blogTotal;
-            Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
-                    o.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
-                    o.repostSum * weightConfig().getCommentWeight() / this.blogTotal;
-            return otherSumScore.compareTo(thisSumScore);
+            Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / o.blogTotal +
+                    o.commentSum * weightConfig().getCommentWeight() / o.blogTotal +
+                    o.repostSum * weightConfig().getCommentWeight() / o.blogTotal;
+            return Float.compare(otherSumScore, thisSumScore);
+
+//            if (o.medianScore > this.medianScore) {
+//                return 1;
+//            } else if (o.medianScore < this.medianScore) {
+//                return -1;
+//            } else {
+//                Float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
+//                        this.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
+//                        this.repostSum * weightConfig().getRepostWeight() / this.blogTotal;
+//                Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
+//                        o.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
+//                        o.repostSum * weightConfig().getCommentWeight() / this.blogTotal;
+//                if (otherSumScore > thisSumScore) {
+//                    return 1;
+//                } else if (otherSumScore < thisSumScore) {
+//                    return -1;
+//                } else {
+//                    return 0;
+//                }
+//            }
         }
     }
 
