@@ -118,18 +118,19 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         Map<String, SearchResultTempBO> searchResVoMap = new HashMap<>(1400);
         for (SearchHit documentFields : infoHit) {
             Map<String, Object> source = documentFields.getSourceAsMap();
-            String[] infos = source.get("info").toString().split("-");
+            String[] infos = source.get("info").toString().split("@");
             searchResVoMap.put(documentFields.getId(),
                     new SearchResultTempBO(documentFields.getId(),
                             Integer.parseInt(source.get("fans").toString()),
                             Float.parseFloat(source.get("score").toString()),
                             null, null, source.get("name").toString(),
-                            (List<Integer>) source.get("label"), source.get("address").toString(),
+                            (List<Integer>) source.get("label.id"), source.get("address").toString(),
                             source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
                             new ReportBO().setAttitudeSum(Long.parseLong(infos[0])).setAttitudeMax(Long.parseLong(infos[1])).setAttitudeMedian(Long.parseLong(infos[2]))
                                     .setCommentSum(Long.parseLong(infos[3])).setCommentMax(Long.parseLong(infos[4])).setCommentMedian(Long.parseLong(infos[5]))
                                     .setRepostSum(Long.parseLong(infos[6])).setRepostMax(Long.parseLong(infos[7])).setRepostMedian(Long.parseLong(infos[8]))
-                                    .setMblogTotal(Long.parseLong(infos[9])).setReleaseMblogFrequency(Double.parseDouble(infos[10]))));
+                                    .setMblogTotal(Long.parseLong(infos[9])).setReleaseMblogFrequency(Double.parseDouble(infos[10]))
+                                    .setRepostRatio(Float.parseFloat(infos[11]))));
         }
         List<SearchResultTempBO> result = new LinkedList<>();
         Float[] floats = mergeUid(uidList, searchResultTempBos);

@@ -49,8 +49,8 @@ public class UserReportDTO extends ReportBO {
         this.fans = fans;
     }
 
-    public UserReportDTO(Long attitudeSum, Long attitudeMax, Long attitudeMedian, Long commentSum, Long commentMax, Long commentMedian, Long repostSum, Long repostMax, Long repostMedian, Long mblogTotal, Double releaseMblogFrequency, String uid, Integer fans) {
-        super(attitudeSum, attitudeMax, attitudeMedian, commentSum, commentMax, commentMedian, repostSum, repostMax, repostMedian, mblogTotal, releaseMblogFrequency);
+    public UserReportDTO(Long attitudeSum, Long attitudeMax, Long attitudeMedian, Long commentSum, Long commentMax, Long commentMedian, Long repostSum, Long repostMax, Long repostMedian, Long mblogTotal, Double releaseMblogFrequency, Float repostRatio, String uid, Integer fans) {
+        super(attitudeSum, attitudeMax, attitudeMedian, commentSum, commentMax, commentMedian, repostSum, repostMax, repostMedian, mblogTotal, releaseMblogFrequency, repostRatio);
         this.uid = uid;
         this.fans = fans;
     }

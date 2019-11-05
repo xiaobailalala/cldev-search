@@ -14,6 +14,7 @@ search-config:
   label-mapping-file: "label-mapping-02"
   name-mapping-file: "name-mapping"
   news-media-file: "news-media"
+  water-amy-file: "online-water-amy"
   load-data: false
 ---
 spring:

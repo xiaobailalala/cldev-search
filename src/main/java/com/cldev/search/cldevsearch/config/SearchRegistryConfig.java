@@ -55,6 +55,7 @@ public class SearchRegistryConfig implements CommandLineRunner {
     private volatile ConcurrentHashMap<String, Integer> labels;
     private volatile MultiValuedMap<String, String> nameMapping;
     private volatile Set<String> newsMedia;
+    private volatile ConcurrentHashMap<String, Integer> onlineWaterAmy;
 
     private final static String ENVIRONMENT_DEV = "dev";
     private final static String ENVIRONMENT_PRO = "pro";
@@ -74,9 +75,11 @@ public class SearchRegistryConfig implements CommandLineRunner {
             labels = new ConcurrentHashMap<>(80);
             nameMapping = new ArrayListValuedHashMap<>(2048);
             newsMedia = Collections.synchronizedSet(new HashSet<>(1024));
+            onlineWaterAmy = new ConcurrentHashMap<>(2048);
             loadLabelMapping(BeanUtil.searchConfig().getLabelMappingFile());
             loadNameMapping(BeanUtil.searchConfig().getNameMappingFile());
             loadNewsMedia(BeanUtil.searchConfig().getNewsMediaFile());
+            loadOnlineWaterAmy(BeanUtil.searchConfig().getWaterAmyFile());
         }
     }
 
@@ -96,7 +99,9 @@ public class SearchRegistryConfig implements CommandLineRunner {
         while ((tempString = reader.readLine()) != null) {
             String[] str = tempString.split("@@@@@@@@");
             nameMapping.put(str[0], str[1]);
+            nameMapping.put(str[0], str[0]);
             nameMapping.put(str[1], str[0]);
+            nameMapping.put(str[1], str[1]);
         }
         reader.close();
     }
@@ -107,6 +112,16 @@ public class SearchRegistryConfig implements CommandLineRunner {
         while ((tempString = reader.readLine()) != null) {
             String[] str = tempString.split(" {6}");
             newsMedia.add(str[0]);
+        }
+        reader.close();
+    }
+
+    public void loadOnlineWaterAmy(String waterAmyFile) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(fileChecked(waterAmyFile)));
+        String tempString;
+        while ((tempString = reader.readLine()) != null) {
+            String[] str = tempString.split(" {2}");
+            onlineWaterAmy.put(str[0], Integer.parseInt(str[1]));
         }
         reader.close();
     }
@@ -136,6 +151,10 @@ public class SearchRegistryConfig implements CommandLineRunner {
         return this.newsMedia;
     }
 
+    public ConcurrentHashMap<String, Integer> getOnlineWaterAmy() {
+        return this.onlineWaterAmy;
+    }
+
     public String updateLabelMapping(String fileName) {
         labels = new ConcurrentHashMap<>(80);
         try {
@@ -162,6 +181,16 @@ public class SearchRegistryConfig implements CommandLineRunner {
             loadNewsMedia(fileName);
         } catch (IOException e) {
             return "Refresh the news media error";
+        }
+        return "success";
+    }
+
+    public String updateWaterAmy(String fileName) {
+        onlineWaterAmy = new ConcurrentHashMap<>(2048);
+        try {
+            loadOnlineWaterAmy(fileName);
+        } catch (IOException e) {
+            return "Refresh the online water amy error";
         }
         return "success";
     }

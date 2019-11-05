@@ -45,15 +45,15 @@ public class FileTest {
 
     @Test
     public void labelOperator() {
-        File labelFile = new File("C:\\Users\\cl24\\Desktop\\deploy-script\\ubuntu\\kol_csv\\allBlog_sum_res.csv");
+        File labelFile = new File("C:\\Users\\cl24\\Desktop\\allBlogfiled(1).csv");
         try (InputStream inputStream = new FileInputStream(labelFile);
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "label")
-                     .withSkipHeaderRecord(false))) {
+                     .withSkipHeaderRecord(true))) {
             Set<String> labelSet = new LinkedHashSet<>();
             for (CSVRecord item : csvRecords) {
                 String labelStr = item.get("label");
                 if (!StringUtils.isEmpty(labelStr)) {
-                    for (String label : labelStr.split("\\|")) {
+                    for (String label : labelStr.split("_")) {
                         if (!StringUtils.isEmpty(label) && !ObjectUtils.isEmpty(label)) {
                             labelSet.add(label);
                         }
@@ -89,12 +89,12 @@ public class FileTest {
     }
 
     @Test
-    public void csvParse() {
+    public void newsOperator() {
         File csvFile = new File("C:\\Users\\cl24\\Desktop\\uid_name_frequency_gte_100_blue.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8),
                      CSVFormat.DEFAULT.withHeader("uid", "name", "frequency")
-                     .withSkipHeaderRecord(false))) {
+                             .withSkipHeaderRecord(false))) {
             int count = 0;
             for (CSVRecord record : csvRecords.getRecords()) {
                 String name = record.get("name");
@@ -110,51 +110,39 @@ public class FileTest {
     }
 
     @Test
-    public void readCsv() {
-        File csvFile = new File("C:\\Users\\cl24\\Desktop\\res.csv");
+    public void csvParse() {
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\kol无效博文百分比.csv");
         try (InputStream inputStream = new FileInputStream(csvFile);
-             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "type", "label1", "label2", "label3", "labelw")
-                     .withSkipHeaderRecord(true))) {
+             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8),
+                     CSVFormat.DEFAULT.withHeader("uid", "count")
+                             .withSkipHeaderRecord(true))) {
+            for (CSVRecord record : csvRecords.getRecords()) {
+                printLoadLog("online-water-amy", record.get("uid") + "  " + record.get("count"));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void readCsv() {
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\allBlog_sum_res(3).csv");
+        try (InputStream inputStream = new FileInputStream(csvFile);
+             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "label")
+                     .withSkipHeaderRecord(false))) {
             Set<String> label = new LinkedHashSet<>();
             for (CSVRecord record : csvRecords) {
-                if (!StringUtils.isEmpty(record.get("label1"))) {
-                    label.add(record.get("label1"));
-                }
-                if (!StringUtils.isEmpty(record.get("label2"))) {
-                    label.add(record.get("label2"));
-                }
-                if (!StringUtils.isEmpty(record.get("label3"))) {
-                    label.add(record.get("label3"));
-                }
-                if (!StringUtils.isEmpty(record.get("labelw"))) {
-                    label.add(record.get("labelw"));
-                }
-            }
-
-            File file = new File("label-mapping");
-            FileOutputStream fileOutputStream = null;
-            try {
-                fileOutputStream = new FileOutputStream(file, true);
-                int index = 0;
-                for (String s : label) {
-                    byte[] contentInBytes = (s + " " + (index++) + "\r\n").getBytes();
-                    fileOutputStream.write(contentInBytes);
-                }
-                fileOutputStream.flush();
-                fileOutputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                try {
-                    if (fileOutputStream != null) {
-                        fileOutputStream.close();
+                String labelStr = record.get("label");
+                if (!StringUtils.isEmpty(labelStr)) {
+                    for (String item : labelStr.split("\\|")) {
+                        if (!ObjectUtils.isEmpty(item) && !StringUtils.isEmpty(item)) {
+                            label.add(item.split(":")[0]);
+                        }
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
             }
-
             System.out.println(label.size());
+            System.out.println(label);
         } catch (IOException ignored) {
         }
     }
@@ -163,7 +151,7 @@ public class FileTest {
     public void searchLabelFromRedis() {
         Jedis jedis = new Jedis("192.168.2.11", 6399);
         jedis.auth("cldev");
-        String item = jedis.get("1748075785");
+        String item = jedis.get("6226234826");
         System.out.println(item);
     }
 
@@ -171,8 +159,8 @@ public class FileTest {
     public void insertRedis() throws IOException {
         Jedis jedis = new Jedis("192.168.2.11", 6399);
         jedis.auth("cldev");
-        File csvFile = new File("C:\\Users\\cl24\\Desktop\\deploy-script\\ubuntu\\kol_csv\\allBlog_sum_res.csv");
-        File mappingFile = new File("label-mapping-02");
+        File csvFile = new File("C:\\Users\\cl24\\Desktop\\allBlog_sum_res(3).csv");
+        File mappingFile = new File("config\\label-mapping-02");
         BufferedReader reader = new BufferedReader(new FileReader(mappingFile));
         String tempString;
         Map<String, String> mapping = new HashMap<>(60);
@@ -196,7 +184,8 @@ public class FileTest {
                 }
                 StringBuilder result = new StringBuilder();
                 for (String item : labelSet) {
-                    result.append(mapping.get(item)).append(",");
+                    String[] label = item.split(":");
+                    result.append(mapping.get(label[0])).append("-").append(label[1]).append(",");
                 }
                 String res = result.length() == 0 ? "" : result.substring(0, result.length() - 1);
                 jedis.set(record.get("uid"), res);

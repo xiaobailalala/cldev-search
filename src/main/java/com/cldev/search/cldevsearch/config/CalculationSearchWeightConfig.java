@@ -179,26 +179,98 @@ public class CalculationSearchWeightConfig {
     @Getter
     private volatile boolean influenceWithWeight = true;
 
+    /**
+     * When evaluating the performance of user interaction,
+     * it is necessary to weight the data of thumb up,
+     * comment and forward.This index represents the weight of thumb up in the three.
+     * This value will have a direct effect on the median or average value in the calculation.
+     */
     @Getter
     private volatile float attitudeWeight = 2.0f;
 
+    /**
+     * When evaluating the performance of user interaction,
+     * it is necessary to weight the data of thumb up, comment and forward.
+     * This indicator represents the weight of the comment among the three.
+     * This value will have a direct effect on the median or average value in the calculation.
+     */
     @Getter
     private volatile float commentWeight = 1.0f;
 
+    /**
+     * When evaluating the performance of user interaction,
+     * it is necessary to weight the data of thumb up, comment and forward.
+     * This indicator represents the weight value of forwarding among the three.
+     * This value will have a direct effect on the median or average value in the calculation.
+     */
     @Getter
     private volatile float repostWeight = 2.0f;
 
+    /**
+     * When rank value of interactive expression is attenuated, it adopts the way of smooth attenuating,
+     * which represents the upper limit of the attenuation of smooth attenuating
+     */
     @Getter
     private volatile float interactionUpperLimit = 1.0f;
 
+    /**
+     * When the overall rank value attenuation of post rating rate and interactive expression is carried out,
+     * the method of smooth attenuation is adopted,
+     * which represents the upper limit of the attenuation of smooth attenuation
+     */
     @Getter
     private volatile float frequencyUpperLimit = 1.0f;
 
     @Getter
-    private volatile float differenceValueDefaultPercent = 0.01f;
+    private volatile float rePostRatioUpperLimit = 1.0f;
 
     @Getter
+    private volatile float rePostRatioDefaultPercent = 0.23f;
+
+    /**
+     * Posting frequency and interactive expression of comprehensive rank value attenuation,
+     * used as a way to smooth attenuation,
+     * but given the post frequency rank and interactive performance rank in the same item with little difference,
+     * its rank is effective, so you need to define a filter cap,
+     * more than the upper limit of difference to rank attenuation,
+     * the upper limit is the percentage of the target sample size.
+     * This indicator represents the percentage of the target sample number, expressed as a decimal.
+     */
+    @Getter
+    private volatile float differenceValueDefaultPercent = 0.01f;
+
+    /**
+     * In the result set, rank attenuation is required for the results of news media,
+     * so the percentage attenuation value is adopted to directly attenuate the scores of news media.
+     * This index represents the percentage of fraction decay, expressed as a decimal
+     */
+    @Getter
     private volatile float newsMediaDecayFactor = 0.9f;
+
+    /**
+     * In the case of water army in the result set,
+     * the scores were reduced by weight reduction.
+     * Since sampling is taken to investigate the invalid number of 100 blog posts in the water army group,
+     * different individuals in the group have different Numbers of posts,
+     * and the more the number of posts, the less important the individual is.
+     * In the form of upper and lower limit division,
+     * the percentage weight reduction in a certain range is carried out for individuals with different Numbers of articles.
+     * This value represents the upper limit of percentage reduction.
+     */
+    @Getter
+    private volatile float waterAmyDecayPercentUpperLimit = 0.8f;
+
+    /**
+     * In the case of water army in the result set,
+     * the scores were reduced by weight reduction.
+     * Since sampling is taken to investigate the invalid number of 100 blog posts in the water army group,
+     * different individuals in the group have different Numbers of posts, and the more the number of posts,
+     * the less important the individual is.In the form of upper and lower limit division,
+     * the percentage weight reduction in a certain range is carried out for individuals with different Numbers of articles.
+     * This value represents the lower limit of percentage reduction.
+     */
+    @Getter
+    private volatile float waterAmyDecayPercentLowerLimit = 0.4f;
 
     /**
      * Some weights require a sum of 1,

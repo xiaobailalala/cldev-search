@@ -158,12 +158,12 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
         this.searchLogInfo.append("------ score normalization : ").append(System.currentTimeMillis() - start).append("ms\n");
         for (int item = 0; item < hits.length; item++) {
             Map<String, Object> source = hits[item].getSourceAsMap();
-            String[] infos = source.get("info").toString().split("-");
+            String[] infos = source.get("info").toString().split("@");
             searchResultTempBOS.add(new SearchResultTempBO(hits[item].getId(),
                     Integer.parseInt(source.get("fans").toString()),
                     Float.parseFloat(source.get("score").toString()),
                     score[item], null, source.get("name").toString(),
-                    (List<Integer>) source.get("label"), source.get("address").toString(),
+                    (List<Integer>) source.get("label.id"), source.get("address").toString(),
                     source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
                     new ReportBO().setAttitudeSum(Long.parseLong(infos[0]))
                             .setAttitudeMax(Long.parseLong(infos[1]))
@@ -175,7 +175,8 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
                             .setRepostMax(Long.parseLong(infos[7]))
                             .setRepostMedian(Long.parseLong(infos[8]))
                             .setMblogTotal(Long.parseLong(infos[9]))
-                            .setReleaseMblogFrequency(Double.parseDouble(infos[10]))));
+                            .setReleaseMblogFrequency(Double.parseDouble(infos[10]))
+                            .setRepostRatio(Float.parseFloat(infos[11]))));
         }
         return searchResultTempBOS;
     }

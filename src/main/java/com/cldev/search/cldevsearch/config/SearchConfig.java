@@ -36,6 +36,7 @@ public class SearchConfig {
     private String labelMappingFile;
     private String nameMappingFile;
     private String newsMediaFile;
+    private String waterAmyFile;
     private boolean loadData;
 
     public String getNameMappingFile() {
@@ -52,6 +53,14 @@ public class SearchConfig {
 
     public void setNewsMediaFile(String newsMediaFile) {
         this.newsMediaFile = newsMediaFile;
+    }
+
+    public String getWaterAmyFile() {
+        return waterAmyFile;
+    }
+
+    public void setWaterAmyFile(String waterAmyFile) {
+        this.waterAmyFile = waterAmyFile;
     }
 
     public String getLabelMappingFile() {

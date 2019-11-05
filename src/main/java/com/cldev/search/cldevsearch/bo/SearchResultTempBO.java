@@ -7,8 +7,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
-import javax.validation.constraints.NotNull;
-import java.util.*;
+import java.util.List;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -98,6 +97,7 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
     }
 
     @Override
+    @SuppressWarnings("all")
     public int compareTo(SearchResultTempBO o) {
         if (o.getCorrelationScore() > this.getCorrelationScore()) {
             return 1;

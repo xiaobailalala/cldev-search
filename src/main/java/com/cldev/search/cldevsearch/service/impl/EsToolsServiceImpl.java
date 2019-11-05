@@ -115,9 +115,6 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .startObject("_all")
                                     .field("enabled", false)
                                     .endObject()
-                                    .startObject("_source")
-                                    .field("excludes", Arrays.asList("description", "reason"))
-                                    .endObject()
                                     .startObject("properties")
                                     .startObject("uid")
                                     .field("type", "long")
@@ -161,8 +158,12 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("type", "float")
                                     .field("doc_values", false)
                                     .endObject()
-                                    .startObject("label")
+                                    .startObject("label.id")
                                     .field("type", "byte")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("label.score")
+                                    .field("type", "double")
                                     .field("doc_values", false)
                                     .endObject()
                                     .startObject("info")
@@ -230,14 +231,18 @@ public class EsToolsServiceImpl implements EsToolsService {
                     JSONObject jsonObject = JSONObject.parseObject(new String(userInfo));
                     String labels = jedis.get(uid);
                     int[] labelArr;
+                    double[] labelScore;
                     if (labels != null && !"".equals(labels)) {
                         String[] split = labels.split(",");
                         labelArr = new int[split.length];
+                        labelScore = new double[split.length];
                         for (int i = 0; i < split.length; i++) {
-                            labelArr[i] = Integer.parseInt(split[i]);
+                            labelArr[i] = Integer.parseInt(split[i].split("-")[0]);
+                            labelScore[i] = Double.parseDouble(split[i].split("-")[1]);
                         }
                     } else {
                         labelArr = new int[0];
+                        labelScore = new double[0];
                     }
                     String fans = null;
                     preparedStatement.setString(1, uid);
@@ -257,7 +262,8 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("sex", "f".equals(jsonObject.getString("gender")) ? "2" : "1")
                                     .field("fans", fans == null ? 0 : fans)
                                     .field("score", score == null ? 0.0f : Float.parseFloat(score))
-                                    .field("label", labelArr)
+                                    .field("label.id", labelArr)
+                                    .field("label.score", labelScore)
                                     .field("reason", jsonObject.getString("verified_reason"))
                                     .field("info", userInfoMap.get(uid))
                                     .endObject()));
@@ -349,17 +355,18 @@ public class EsToolsServiceImpl implements EsToolsService {
         Client client = esTemplate.getClient();
         BulkRequestBuilder builder = client.prepareBulk();
         for (UserReportDTO item : userReportDTOList) {
-            String info = item.getAttitudeSum() + "-" +
-                    item.getAttitudeMax() + "-" +
-                    item.getAttitudeMedian() + "-" +
-                    item.getCommentSum() + "-" +
-                    item.getCommentMax() + "-" +
-                    item.getCommentMedian() + "-" +
-                    item.getRepostSum() + "-" +
-                    item.getRepostMax() + "-" +
-                    item.getRepostMedian() + "-" +
-                    item.getMblogTotal() + "-" +
-                    item.getReleaseMblogFrequency();
+            String info = item.getAttitudeSum() + "@" +
+                    item.getAttitudeMax() + "@" +
+                    item.getAttitudeMedian() + "@" +
+                    item.getCommentSum() + "@" +
+                    item.getCommentMax() + "@" +
+                    item.getCommentMedian() + "@" +
+                    item.getRepostSum() + "@" +
+                    item.getRepostMax() + "@" +
+                    item.getRepostMedian() + "@" +
+                    item.getMblogTotal() + "@" +
+                    item.getReleaseMblogFrequency() + "@" +
+                    item.getRepostRatio();
             try {
                 XContentBuilder jsonBuilder = XContentFactory.jsonBuilder().startObject();
                 if (!ObjectUtils.isEmpty(item.getFans()) && !StringUtils.isEmpty(item.getFans())) {

@@ -52,6 +52,7 @@ import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
  * @version 1.0
  * @description
  */
+@SuppressWarnings("all")
 public class CalculationSearchFactory implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(CalculationSearchFactory.class);
@@ -140,7 +141,6 @@ public class CalculationSearchFactory implements Runnable {
                     long start = System.currentTimeMillis();
                     UserCalculationSearch userCalculationSearch = new UserCalculationSearch(this.condition);
                     this.userIndicesResult.addAll(userCalculationSearch.initSearchCondition().getResult(this.client));
-                    System.out.println(this.userIndicesResult.size());
                     searchLogInfo.append(userCalculationSearch.getSearchLogInfo()).append("search user total: ").append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.userIndicesResult.addAll(new ArrayList<>());
@@ -216,6 +216,9 @@ public class CalculationSearchFactory implements Runnable {
             this.resultUid.addAll(new ArrayList<>());
         } else {
             List<SearchResultTempBO> userNameResult = new LinkedList<>(this.userNameIndicesResult);
+            for (SearchResultTempBO item : userNameResult) {
+                System.out.println(item.getName());
+            }
             List<SearchResultTempBO> userResult = new LinkedList<>(this.userIndicesResult);
             List<SearchResultTempBO> blogResult = new LinkedList<>(this.blogIndicesResult);
             Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap = new HashMap<>(500);
@@ -385,20 +388,31 @@ public class CalculationSearchFactory implements Runnable {
                     item.getReport().getAttitudeMedian(), item.getReport().getCommentMedian(), item.getReport().getRepostMedian(),
                     item.getReport().getMblogTotal(), item.getReport().getAttitudeSum(), item.getReport().getCommentSum(), item.getReport().getRepostSum()));
         }
-        Map<String, ScoreWithRank> scoreMapByInteraction = getScoreMap(tempResult);
-        Map<String, ScoreWithRank> scoreMapByFrequency = getScoreMap(scoreMapByInteraction, blogResultFilter);
+        Map<String, ScoreWithRank> scoreMapWithInteraction = getScoreMapWithInteraction(tempResult);
+        Map<String, ScoreWithRank> scoreMapWithFrequency = getScoreMapWithDifference(scoreMapWithInteraction, blogResultFilter);
+        Map<String, ScoreWithRank> scoreMapWithRePostRatio = getScoreMapWithRePostRatio(blogResultFilter);
+        Set<String> newsMedia = searchRegistryConfig().getNewsMedia();
+        ConcurrentHashMap<String, Integer> onlineWaterAmy = searchRegistryConfig().getOnlineWaterAmy();
+        float waterAmyDecayPercentUpperLimit = weightConfig().getWaterAmyDecayPercentUpperLimit(),
+                differenceValue = waterAmyDecayPercentUpperLimit - weightConfig().getWaterAmyDecayPercentLowerLimit(),
+                differencePercent = differenceValue / 100;
         for (SearchResultTempBO item : blogResultFilter) {
             float score = item.getCorrelationScore() +
-                    scoreMapByInteraction.get(item.getUid()).getScore() +
-                    scoreMapByFrequency.get(item.getUid()).getScore();
-            if (searchRegistryConfig().getNewsMedia().contains(item.getUid())) {
+                    scoreMapWithInteraction.get(item.getUid()).getScore() +
+                    scoreMapWithFrequency.get(item.getUid()).getScore() +
+                    scoreMapWithRePostRatio.get(item.getUid()).getScore();
+            if (newsMedia.contains(item.getUid())) {
                 score *= weightConfig().getNewsMediaDecayFactor();
+            }
+            Integer waterAmy = onlineWaterAmy.get(item.getUid());
+            if (waterAmy != null) {
+                score *= waterAmyDecayPercentUpperLimit - waterAmy * differencePercent;
             }
             item.setCorrelationScore(score);
         }
     }
 
-    private Map<String, ScoreWithRank> getScoreMap(List<ResultSortByInteractionAbility> tempResult) {
+    private Map<String, ScoreWithRank> getScoreMapWithInteraction(List<ResultSortByInteractionAbility> tempResult) {
         long interactionStart = System.currentTimeMillis();
         Collections.sort(tempResult);
         Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
@@ -411,7 +425,7 @@ public class CalculationSearchFactory implements Runnable {
         return scoreMap;
     }
 
-    private Map<String, ScoreWithRank> getScoreMap(Map<String, ScoreWithRank> interactionResultMap, List<SearchResultTempBO> tempResult) {
+    private Map<String, ScoreWithRank> getScoreMapWithDifference(Map<String, ScoreWithRank> interactionResultMap, List<SearchResultTempBO> tempResult) {
         long differenceStart = System.currentTimeMillis();
         List<SearchResultTempBO> tempList = new LinkedList<>(tempResult);
         tempList.sort((o1, o2) -> o2.getReport().getReleaseMblogFrequency().compareTo(o1.getReport().getReleaseMblogFrequency()));
@@ -422,15 +436,34 @@ public class CalculationSearchFactory implements Runnable {
         }
         Collections.sort(differenceValues);
         Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
-        int limitPercentDifference = (int) Math.ceil(tempList.size() / weightConfig().getDifferenceValueDefaultPercent());
+        int limitPercentDifference = (int) Math.ceil(tempList.size() * weightConfig().getDifferenceValueDefaultPercent());
         int percentIndex = 0;
         float upperLimit = weightConfig().getFrequencyUpperLimit();
+        float decayFactor = upperLimit / tempResult.size();
         for (int index = 0; index < differenceValues.size(); index++) {
             Integer difference = differenceValues.get(index).getDifference();
-            scoreMap.put(differenceValues.get(index).getUid(), new ScoreWithRank(difference <= limitPercentDifference ?
-                    upperLimit : upperLimit - upperLimit * ++percentIndex, (index + 1)));
+            scoreMap.put(differenceValues.get(index).getUid(), new ScoreWithRank(difference < limitPercentDifference ?
+                    upperLimit : upperLimit - decayFactor * ++percentIndex, (index + 1)));
         }
         this.searchLogInfo.append("------ difference filter time : ").append(System.currentTimeMillis() - differenceStart).append("ms\n");
+        return scoreMap;
+    }
+
+    private Map<String, ScoreWithRank> getScoreMapWithRePostRatio(List<SearchResultTempBO> tempResult) {
+        long rePostRatioStart = System.currentTimeMillis();
+        List<SearchResultTempBO> tempList = new LinkedList<>(tempResult);
+        tempList.sort(Comparator.comparing(o -> o.getReport().getRepostRatio()));
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        float upperLimit = weightConfig().getInteractionUpperLimit();
+        float decayFactor = upperLimit / tempList.size();
+        float ratioDefaultPercent = weightConfig().getRePostRatioDefaultPercent();
+        int percentIndex = 0;
+        for (int index = 0; index < tempList.size(); index++) {
+            Float repostRatio = tempList.get(index).getReport().getRepostRatio();
+            scoreMap.put(tempList.get(index).getUid(), new ScoreWithRank(repostRatio < ratioDefaultPercent ? upperLimit :
+                    upperLimit - decayFactor * ++percentIndex, index + 1));
+        }
+        this.searchLogInfo.append("------ rePost ratio filter time : ").append(System.currentTimeMillis() - rePostRatioStart).append("ms\n");
         return scoreMap;
     }
 
@@ -500,26 +533,6 @@ public class CalculationSearchFactory implements Runnable {
                     o.commentSum * weightConfig().getCommentWeight() / o.blogTotal +
                     o.repostSum * weightConfig().getCommentWeight() / o.blogTotal;
             return Float.compare(otherSumScore, thisSumScore);
-
-//            if (o.medianScore > this.medianScore) {
-//                return 1;
-//            } else if (o.medianScore < this.medianScore) {
-//                return -1;
-//            } else {
-//                Float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
-//                        this.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
-//                        this.repostSum * weightConfig().getRepostWeight() / this.blogTotal;
-//                Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
-//                        o.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
-//                        o.repostSum * weightConfig().getCommentWeight() / this.blogTotal;
-//                if (otherSumScore > thisSumScore) {
-//                    return 1;
-//                } else if (otherSumScore < thisSumScore) {
-//                    return -1;
-//                } else {
-//                    return 0;
-//                }
-//            }
         }
     }
 

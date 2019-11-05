@@ -70,4 +70,8 @@ public class ReportBO {
 
     /** 周发文频率 */
     private Double releaseMblogFrequency;
+
+    /** 近一年的博文转发比 */
+    private Float repostRatio;
+
 }
