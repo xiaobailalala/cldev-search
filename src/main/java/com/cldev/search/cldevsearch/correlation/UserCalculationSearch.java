@@ -139,7 +139,7 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
         if (!ObjectUtils.isEmpty(interest) && interest.size() != 0) {
             BoolQueryBuilder boolQueryBuilder = childBoolQueryBuilder(InterestBoolQueryBuilder.class);
             for (Integer integer : interest) {
-                boolQueryBuilder = boolQueryBuilder.should(new TermQueryBuilder("label", integer));
+                boolQueryBuilder = boolQueryBuilder.should(new TermQueryBuilder("label.id", integer));
             }
             return this.boolQueryBuilder.must(boolQueryBuilder);
         }

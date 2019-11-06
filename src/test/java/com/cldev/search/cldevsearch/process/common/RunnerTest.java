@@ -9,7 +9,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.*;
-import java.util.Collections;
+import java.util.*;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -54,7 +54,7 @@ public class RunnerTest {
         try {
             headers.setAccept(Collections.singletonList(MediaType.valueOf("application/x-msdownload")));
             ResponseEntity<byte[]> response = restTemplate.exchange(
-                    "http://192.168.2.205:9000/log/download",
+                    "http://180.76.234.113:9000/log/download",
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
                     byte[].class
@@ -68,6 +68,9 @@ public class RunnerTest {
                 if (!newFile) {
                     throw new IOException("create error");
                 }
+            }
+            for (Map.Entry<String, List<String>> item : headers.entrySet()) {
+                System.out.println(item.getKey() + " " + item.getValue());
             }
             outputStream = new FileOutputStream(file);
             int len;
