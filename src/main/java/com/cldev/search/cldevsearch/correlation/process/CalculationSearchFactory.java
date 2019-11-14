@@ -95,6 +95,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 异步线程进行多线程搜索
+     *
      * @param callBack 回调接口-异步任务主体
      */
     private void kolCalculationResultProcess(CommonCallBack callBack) {
@@ -164,6 +165,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 获取最终结果集
+     *
      * @return 最终的数据结果集
      */
     public List<SearchResVO> searchEnd() {
@@ -172,6 +174,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 获取线程屏障对象
+     *
      * @return 线程屏障对象
      */
     public CyclicBarrier getCyclicBarrier() {
@@ -180,6 +183,7 @@ public class CalculationSearchFactory implements Runnable {
 
     /**
      * 搜索内容是否含有过滤条件
+     *
      * @return 是否含有过滤条件，true为含有，false为不含
      */
     private boolean isCondition() {
@@ -269,14 +273,14 @@ public class CalculationSearchFactory implements Runnable {
                 continue;
             }
             /* 根据繁-简转化后的中字比对 */
-            double compareInTraditional  = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
+            double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
                     HanLP.convertToSimplifiedChinese(condition.getContext()).toLowerCase());
             if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
                 continue;
             }
             /* 根据中-拼音转换后的拼音全拼比对 */
-            double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
+            double compareInPinyin = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
                     ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
             if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
                     compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
