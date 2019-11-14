@@ -65,6 +65,16 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
     private List<Integer> labels;
 
     /**
+     * Labels score
+     */
+    private List<Double> scores;
+
+    /**
+     * The labels for filter and show
+     */
+    private List<Integer> showLabels;
+
+    /**
      * Address information stored in Elasticsearch
      */
     private String address;
@@ -84,12 +94,14 @@ public class SearchResultTempBO extends SearchResVO implements Comparable<Search
      */
     private ReportBO report;
 
-    public SearchResultTempBO(String uid, Integer wbFans, Float score, Float correlationScore, String createTime, String name, List<Integer> labels, String address, String province, Integer sex, ReportBO report) {
+    public SearchResultTempBO(String uid, Integer wbFans, Float score, Float correlationScore, String createTime, String name, List<Integer> labels, List<Double> scores, List<Integer> showLabels, String address, String province, Integer sex, ReportBO report) {
         super(uid, wbFans, score);
         this.correlationScore = correlationScore;
         this.createTime = createTime;
         this.name = name;
         this.labels = labels;
+        this.scores = scores;
+        this.showLabels = showLabels;
         this.address = address;
         this.province = province;
         this.sex = sex;

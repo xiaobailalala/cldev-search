@@ -115,7 +115,7 @@ public class CalculationSearchWeightConfig {
      * Based on pinyin head
      */
     @Getter
-    private volatile float usernameSimilarityPinyinHead = 0.79f;
+    private volatile float usernameSimilarityPinyinHead = 0.839f;
 
     /**
      * For the same search term,
@@ -245,7 +245,7 @@ public class CalculationSearchWeightConfig {
      * This index represents the percentage of fraction decay, expressed as a decimal
      */
     @Getter
-    private volatile float newsMediaDecayFactor = 0.9f;
+    private volatile float newsMediaDecayFactor = 0.8f;
 
     /**
      * In the case of water army in the result set,
@@ -271,6 +271,15 @@ public class CalculationSearchWeightConfig {
      */
     @Getter
     private volatile float waterAmyDecayPercentLowerLimit = 0.4f;
+
+    @Getter
+    private volatile String nameRegex = "[~}{`_^\\]\\\\\\[@?><=;:/.\\-,+*)('&%$#\"!]";
+
+    @Getter
+    private volatile float hitPercentUpperLimit = 1.0f;
+
+    @Getter
+    private volatile float hitPercentLowerLimit = 0.5f;
 
     /**
      * Some weights require a sum of 1,

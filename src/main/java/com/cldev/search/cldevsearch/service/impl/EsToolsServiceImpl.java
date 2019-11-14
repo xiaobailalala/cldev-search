@@ -20,6 +20,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -166,6 +169,10 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("type", "double")
                                     .field("doc_values", false)
                                     .endObject()
+                                    .startObject("label.show")
+                                    .field("type", "byte")
+                                    .field("doc_values", false)
+                                    .endObject()
                                     .startObject("info")
                                     .field("type", "keyword")
                                     .field("doc_values", false)
@@ -188,12 +195,21 @@ public class EsToolsServiceImpl implements EsToolsService {
         InputStreamReader input;
         Map<String, String> scoreMapping = new HashMap<>(800000);
         Map<String, String> userInfoMap = new HashMap<>(1179648);
+        Set<String> userId50w = new HashSet<>(1048576);
         try {
+            BufferedReader bufferedReader50w = new BufferedReader(new FileReader("C:\\Users\\cl24\\Desktop\\uid_50w.csv"));
+            String uid;
+            while ((uid = bufferedReader50w.readLine()) != null) {
+                userId50w.add(uid);
+            }
+            bufferedReader50w.close();
             input = new InputStreamReader(new FileInputStream(scoreMap));
             BufferedReader bufferedReader = new BufferedReader(input);
             String str;
             while ((str = bufferedReader.readLine()) != null) {
-                scoreMapping.put(str.split(",")[0], str.split(",")[1]);
+                if (userId50w.contains(str.split(",")[0])) {
+                    scoreMapping.put(str.split(",")[0], str.split(",")[1]);
+                }
             }
             bufferedReader.close();
             input.close();
@@ -215,10 +231,12 @@ public class EsToolsServiceImpl implements EsToolsService {
             String sql = "SELECT fans_total FROM user_state WHERE uid = ?";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             ssdb = new SSDB("192.168.2.55", 8889);
-            String[] files = {"uid_80w.csv"};
+            String[] files = {"uid_50w.csv"};
             int count = 0;
             Jedis jedis = new Jedis("192.168.2.11", 6399);
             jedis.auth("cldev");
+            Jedis jedisWithoutScore = new Jedis("192.168.2.11", 6409);
+            jedisWithoutScore.auth("cldev");
             BulkRequestBuilder builder = esTemplate.getClient().prepareBulk();
             int limit = 100000;
             for (String file : files) {
@@ -244,6 +262,16 @@ public class EsToolsServiceImpl implements EsToolsService {
                         labelArr = new int[0];
                         labelScore = new double[0];
                     }
+                    String labelWithoutScore = jedisWithoutScore.get(uid);
+                    int[] labelWithoutScoreArr;
+                    if (labelWithoutScore != null && !"".equals(labelWithoutScore)) {
+                        labelWithoutScoreArr = new int[labelWithoutScore.split("-").length];
+                        for (int item = 0; item < labelWithoutScore.split("-").length; item++) {
+                            labelWithoutScoreArr[item] = Integer.parseInt(labelWithoutScore.split("-")[item]);
+                        }
+                    } else {
+                        labelWithoutScoreArr = new int[0];
+                    }
                     String fans = null;
                     preparedStatement.setString(1, uid);
                     ResultSet resultSet = preparedStatement.executeQuery();
@@ -264,6 +292,7 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("score", score == null ? 0.0f : Float.parseFloat(score))
                                     .field("label.id", labelArr)
                                     .field("label.score", labelScore)
+                                    .field("label.show", labelWithoutScoreArr)
                                     .field("reason", jsonObject.getString("verified_reason"))
                                     .field("info", userInfoMap.get(uid))
                                     .endObject()));
@@ -475,6 +504,51 @@ public class EsToolsServiceImpl implements EsToolsService {
         }
         builder.get();
         return "success";
+    }
+
+    @Override
+    public JSONObject dayTaskDeleteRemoveUser(List<String> uidList) {
+        JSONObject response = new JSONObject();
+        response.put("artIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-art/_delete_by_query",
+                getRequestBody(new JSONObject()
+                        .fluentPut("query", new JSONObject()
+                                .fluentPut("terms", new JSONObject()
+                                        .fluentPut("uid", uidList.toArray(new String[0])))).toJSONString()),
+                JSONObject.class));
+        response.put("userIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-user/_delete_by_query",
+                getRequestBody(new JSONObject()
+                        .fluentPut("query", new JSONObject()
+                                .fluentPut("terms", new JSONObject()
+                                        .fluentPut("_id", uidList.toArray(new String[0])))).toJSONString()),
+                JSONObject.class));
+        asyncTaskUtil.asyncCustomTask(() -> {
+            List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
+            assert indicesList != null;
+            List<String> indices = new LinkedList<>();
+            for (Object item : indicesList) {
+                String index = ((LinkedHashMap) item).get("index").toString();
+                if (index.startsWith("wb-art")) {
+                    indices.add(index);
+                }
+            }
+            for (String index : indices) {
+                restTemplate.postForObject("http://192.168.2.76:9200/" + index + "/_forcemerge?max_num_segments=1",
+                        null,
+                        Object.class);
+            }
+            restTemplate.postForObject("http://192.168.2.76:9200/wb-user-1569427200000/_forcemerge?max_num_segments=1",
+                    null,
+                    Object.class);
+        });
+        return response;
+    }
+
+    private synchronized <T> HttpEntity<T> getRequestBody(T requestStr) {
+        HttpHeaders headers = new HttpHeaders();
+        MediaType type = MediaType.parseMediaType("application/json; charset=UTF-8");
+        headers.setContentType(type);
+        headers.add("Accept", MediaType.APPLICATION_JSON.toString());
+        return new HttpEntity<>(requestStr, headers);
     }
 
     private Indices getNewBlogIndices() {

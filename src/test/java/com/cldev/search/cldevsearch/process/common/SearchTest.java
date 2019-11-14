@@ -60,7 +60,7 @@ public class SearchTest {
     @Test
     public void searchFromSsDb() throws Exception {
         SSDB ssdb = new SSDB("192.168.2.55", 8889);
-        byte[] userinfos = ssdb.hget("userinfo", "3069348215");
+        byte[] userinfos = ssdb.hget("userinfo", "3085565761");
         String userInfo = new String(userinfos);
         String description = JSONObject.parseObject(userInfo).getString("description");
         System.out.println(userInfo);

@@ -84,8 +84,14 @@ public class SimilarityUtil {
     }
 
     public static void main(String[] args) {
-        float a = 0.1f, b = 0.2f;
-        System.out.println(a + b == 0.3);
+        System.out.println(sim("SunnyBaby妮妮微博", "SunnyBaby妮妮"));
+        System.out.println(sim("Mr_凡先生", "Mr_清先生"));
+
+        //~}{`_^]\[@?><=;:/.–,+*)('&%$#"!
+        String str = "尚雨~1}2{3`4_5^6]\\[@7?>8<9=0;:/.-,+*)('&%$#\"!";
+        System.out.println(str.replaceAll("[~}{`_^\\]\\\\\\[@?><=;:/.\\-,+*)('&%$#\"!]", ""));
+
+//        System.out.println(str.replaceAll("[~}{`_^\\]]",""));
     }
 
 }

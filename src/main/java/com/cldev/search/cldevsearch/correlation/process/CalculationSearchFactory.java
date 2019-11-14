@@ -5,9 +5,9 @@ import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import com.cldev.search.cldevsearch.util.CommonCallBack;
-import com.cldev.search.cldevsearch.util.CommonUtil;
-import com.cldev.search.cldevsearch.util.SimilarityUtil;
+import com.cldev.search.cldevsearch.entity.UserInterestLabel;
+import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
+import com.cldev.search.cldevsearch.util.*;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hankcs.hanlp.HanLP;
 import lombok.Getter;
@@ -76,6 +76,8 @@ public class CalculationSearchFactory implements Runnable {
 
     private List<SearchResultTempBO> resultUid = new LinkedList<>();
 
+    private ConcurrentHashMap<Integer, Float> userInterestLabelScore = new ConcurrentHashMap<>(128);
+
     private StringBuffer searchLogInfo = new StringBuffer("The search process info : \n");
 
     private long searchTimeStart = System.currentTimeMillis();
@@ -117,11 +119,14 @@ public class CalculationSearchFactory implements Runnable {
                 .append("-------------------- the search condition is : sex-").append(this.condition.getSex()).append(" address-")
                 .append(Arrays.toString(this.condition.getAddress())).append(" interest-").append(this.condition.getInterest())
                 .append(" fansNum-").append(this.condition.getFansNum()).append(" --------------------\n");
+        boolean isUserLogged = !ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid());
         if (StringUtils.isEmpty(condition.getContext())) {
-            this.cyclicBarrier = new CyclicBarrier(2, this);
+            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 3 : 2, this);
+            this.userInterestLabelScoreProcess(isUserLogged);
             this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
         } else {
-            this.cyclicBarrier = new CyclicBarrier(4, this);
+            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 5 : 4, this);
+            this.userInterestLabelScoreProcess(isUserLogged);
             // 用户名检索线程
             this.kolCalculationResultProcess(() -> {
                 try {
@@ -159,6 +164,28 @@ public class CalculationSearchFactory implements Runnable {
                     this.blogIndicesResult.addAll(new ArrayList<>());
                     e.printStackTrace();
                     logger.error("----------------- blogIndicesResult search error -----------------");
+                }
+            });
+        }
+    }
+
+    /**
+     * 若用户处于登录状态，获取用户的兴趣标签信息及分数
+     */
+    private void userInterestLabelScoreProcess(boolean isLogged) {
+        if (isLogged) {
+            this.kolCalculationResultProcess(() -> {
+                try {
+                    long start = System.currentTimeMillis();
+                    UserInterestLabelMapper mapper = BeanUtil.userInterestLabelMapper();
+                    for (UserInterestLabel item : mapper
+                            .select(new UserInterestLabel().setUid(this.condition.getUid()))) {
+                        userInterestLabelScore.put(searchRegistryConfig().getInterestOne(item.getLabel()), item.getRes());
+                    }
+                    searchLogInfo.append("search user interest label : ").append(System.currentTimeMillis() - start).append("ms\n");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logger.error("----------------- user interest label search error -----------------");
                 }
             });
         }
@@ -216,9 +243,6 @@ public class CalculationSearchFactory implements Runnable {
             this.resultUid.addAll(new ArrayList<>());
         } else {
             List<SearchResultTempBO> userNameResult = new LinkedList<>(this.userNameIndicesResult);
-            for (SearchResultTempBO item : userNameResult) {
-                System.out.println(item.getName());
-            }
             List<SearchResultTempBO> userResult = new LinkedList<>(this.userIndicesResult);
             List<SearchResultTempBO> blogResult = new LinkedList<>(this.blogIndicesResult);
             Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap = new HashMap<>(500);
@@ -285,6 +309,12 @@ public class CalculationSearchFactory implements Runnable {
                     userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
                     continue item;
                 }
+                /* 去除原文和结果中的特殊字符后进行比对 */
+                if (name.toLowerCase().replaceAll(weightConfig().getNameRegex(), "")
+                        .equals(userName.getName().toLowerCase().replaceAll(weightConfig().getNameRegex(), ""))) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, 1));
+                    continue item;
+                }
                 /* 根据繁-简转化后的中字比对 */
                 double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
                         HanLP.convertToSimplifiedChinese(name).toLowerCase());
@@ -332,7 +362,7 @@ public class CalculationSearchFactory implements Runnable {
                 if (resolverAddress(item.getAddress(), item.getProvince()) &&
                         resolverSex(item.getSex()) &&
                         resolverFansNum(item.getWbFans()) &&
-                        resolverInterest(item.getLabels())) {
+                        resolverInterest(item.getShowLabels())) {
                     searchResult.add(item);
                 }
             }
@@ -397,6 +427,10 @@ public class CalculationSearchFactory implements Runnable {
                 differenceValue = waterAmyDecayPercentUpperLimit - weightConfig().getWaterAmyDecayPercentLowerLimit(),
                 differencePercent = differenceValue / 100;
         for (SearchResultTempBO item : blogResultFilter) {
+//            if ("1002896570".equals(item.getUid())) {
+                System.out.println(item.getCorrelationScore() + " " + scoreMapWithInteraction.get(item.getUid()).getScore() + " " +
+                        scoreMapWithFrequency.get(item.getUid()).getScore() + " " + scoreMapWithRePostRatio.get(item.getUid()).getScore());
+//            }
             float score = item.getCorrelationScore() +
                     scoreMapWithInteraction.get(item.getUid()).getScore() +
                     scoreMapWithFrequency.get(item.getUid()).getScore() +
@@ -466,6 +500,18 @@ public class CalculationSearchFactory implements Runnable {
         this.searchLogInfo.append("------ rePost ratio filter time : ").append(System.currentTimeMillis() - rePostRatioStart).append("ms\n");
         return scoreMap;
     }
+
+//    private Map<String, ScoreWithRank> getScoreMapWithInterestLabel(List<SearchResultTempBO> tempResult) {
+//        long interestLabelStart = System.currentTimeMillis();
+//        Set<Integer> interest = this.userInterestLabelScore.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+//        for (SearchResultTempBO searchResult : tempResult) {
+//            for (int item = 0; item < searchResult.getLabels().size(); item++) {
+//
+//            }
+//        }
+//        this.searchLogInfo.append("------ interest label operator time : ").append(System.currentTimeMillis() - interestLabelStart).append("ms\n");
+//        return scoreMap;
+//    }
 
     private class SearchResultTempBoWithSimilarityScore implements Comparable<SearchResultTempBoWithSimilarityScore> {
 

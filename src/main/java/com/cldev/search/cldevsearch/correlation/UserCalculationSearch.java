@@ -163,7 +163,8 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
                     Integer.parseInt(source.get("fans").toString()),
                     Float.parseFloat(source.get("score").toString()),
                     score[item], null, source.get("name").toString(),
-                    (List<Integer>) source.get("label.id"), source.get("address").toString(),
+                    (List<Integer>) source.get("label.id"), (List<Double>) source.get("label.score"),
+                    (List<Integer>) source.get("label.show"), source.get("address").toString(),
                     source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
                     new ReportBO().setAttitudeSum(Long.parseLong(infos[0]))
                             .setAttitudeMax(Long.parseLong(infos[1]))

@@ -43,6 +43,11 @@ import java.util.List;
 public class SearchConditionDTO {
 
     /**
+     * If the user is in the login state, the user id is needed to obtain the label score information
+     */
+    private String uid;
+
+    /**
      * Search content, from the search box content
      */
     private String context;

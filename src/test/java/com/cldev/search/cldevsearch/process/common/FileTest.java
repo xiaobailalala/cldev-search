@@ -159,7 +159,6 @@ public class FileTest {
     public void insertRedis() throws IOException {
         Jedis jedis = new Jedis("192.168.2.11", 6399);
         jedis.auth("cldev");
-        File csvFile = new File("C:\\Users\\cl24\\Desktop\\allBlog_sum_res(3).csv");
         File mappingFile = new File("config\\label-mapping-02");
         BufferedReader reader = new BufferedReader(new FileReader(mappingFile));
         String tempString;
@@ -169,7 +168,7 @@ public class FileTest {
             mapping.put(str[0], str[1]);
         }
         reader.close();
-        try (InputStream inputStream = new FileInputStream(csvFile);
+        try (InputStream inputStream = new FileInputStream(new File("C:\\Users\\cl24\\Desktop\\allBlog_sum_res(3).csv"));
              CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "label")
                      .withSkipHeaderRecord(false))) {
             for (CSVRecord record : csvRecords) {
@@ -189,6 +188,29 @@ public class FileTest {
                 }
                 String res = result.length() == 0 ? "" : result.substring(0, result.length() - 1);
                 jedis.set(record.get("uid"), res);
+            }
+        }
+        Jedis jedisWithoutScore = new Jedis("192.168.2.11", 6409);
+        jedisWithoutScore.auth("cldev");
+        try (InputStream inputStream = new FileInputStream(new File("C:\\Users\\cl24\\Desktop\\allBlogfiled(1).csv"));
+             CSVParser csvRecords = new CSVParser(new InputStreamReader(inputStream, StandardCharsets.UTF_8), CSVFormat.DEFAULT.withHeader("uid", "label")
+                     .withSkipHeaderRecord(true))) {
+            for (CSVRecord record : csvRecords) {
+                String labelStr = record.get("label");
+                Set<String> labelSet = new HashSet<>();
+                if (!StringUtils.isEmpty(labelStr)) {
+                    for (String label : labelStr.split("_")) {
+                        if (!StringUtils.isEmpty(label) && !ObjectUtils.isEmpty(label)) {
+                            labelSet.add(label);
+                        }
+                    }
+                }
+                StringBuilder result = new StringBuilder();
+                for (String item : labelSet) {
+                    result.append(mapping.get(item)).append("-");
+                }
+                String res = result.length() == 0 ? "" : result.substring(0, result.length() - 1);
+                jedisWithoutScore.set(record.get("uid"), res);
             }
         }
     }

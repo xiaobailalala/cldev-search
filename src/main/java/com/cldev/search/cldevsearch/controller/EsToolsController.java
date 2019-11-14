@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
@@ -100,13 +101,13 @@ public class EsToolsController {
     }
 
     @PostMapping("/dayTask/update/userReports")
-    public String dayTaskUpdateUserReports(@RequestBody List<UserReportDTO> userReportDTOList) {
-        return esToolsService.dayTaskUpdateUserReports(userReportDTOList);
+    public String dayTaskUpdateUserReports(@RequestBody List<UserReportDTO> userReport) {
+        return esToolsService.dayTaskUpdateUserReports(userReport);
     }
 
     @PostMapping("/dayTask/update/userLabels")
-    public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabelDTOList) {
-        return esToolsService.dayTaskUpdateUserLabels(userLabelDTOList);
+    public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabel) {
+        return esToolsService.dayTaskUpdateUserLabels(userLabel);
     }
 
     @GetMapping("/dayTask/forceMerge/user")
@@ -120,8 +121,13 @@ public class EsToolsController {
     }
 
     @PostMapping("/dayTask/update/userInfo")
-    public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfoDTOS) {
-        return esToolsService.dayTaskUpdateUserInfo(userInfoDTOS);
+    public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfo) {
+        return esToolsService.dayTaskUpdateUserInfo(userInfo);
+    }
+
+    @PostMapping("/dayTask/delete/removeUser")
+    public JSONObject dayTaskDeleteRemoveUser(@RequestBody List<String> uidList) {
+        return esToolsService.dayTaskDeleteRemoveUser(uidList);
     }
 
 }

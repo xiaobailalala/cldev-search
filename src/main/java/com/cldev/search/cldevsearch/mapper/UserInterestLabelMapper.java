@@ -1,9 +1,7 @@
-package com.cldev.search.cldevsearch;
+package com.cldev.search.cldevsearch.mapper;
 
-import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.transaction.annotation.Transactional;
+import com.cldev.search.cldevsearch.entity.UserInterestLabel;
+import tk.mybatis.mapper.common.Mapper;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -29,16 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
  * 　　　┗┻┛　┗┻┛
  *
  * @author cl24
- * Build File @date: 2019/9/25
+ * Build File @date: 2019/11/14
  * @description TODO
  * @version 1.0
  */
-@SpringBootApplication
-@MapperScan("com.cldev.search.cldevsearch.mapper")
-public class CldevSearchApplication {
-
-    public static void main(String[] args) {
-        SpringApplication.run(CldevSearchApplication.class, args);
-    }
-
+public interface UserInterestLabelMapper extends Mapper<UserInterestLabel> {
 }

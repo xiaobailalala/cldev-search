@@ -55,9 +55,11 @@ public class UserCalculationSearchName extends UserCalculationSearch {
         if (!StringUtils.isEmpty(context)) {
             List<String> screenName = BeanUtil.searchRegistryConfig().getScreenName(context);
             if (screenName.size() == 0) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", context));
                 return this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", context));
             }
             for (String name : screenName) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("name", context));
                 this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("name", name));
             }
             return this.boolQueryBuilder;

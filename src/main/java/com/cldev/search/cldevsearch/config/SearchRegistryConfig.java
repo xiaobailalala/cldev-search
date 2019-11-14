@@ -8,6 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -137,6 +138,13 @@ public class SearchRegistryConfig implements CommandLineRunner {
             }
         }
         return integers;
+    }
+
+    public Integer getInterestOne(String interest) {
+        if (!ObjectUtils.isEmpty(interest) && !StringUtils.isEmpty(interest)) {
+            return labels.get(interest);
+        }
+        return null;
     }
 
     public List<String> getScreenName(String name) {
