@@ -1,23 +1,15 @@
 package com.cldev.search.cldevsearch.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
-import com.cldev.search.cldevsearch.dto.UserFansDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
+import com.cldev.search.cldevsearch.dto.UserReportDTO;
 import com.cldev.search.cldevsearch.service.EsToolsService;
-import org.elasticsearch.action.DocWriteResponse;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -52,12 +44,10 @@ import java.util.stream.Collectors;
 public class EsToolsController {
 
     private final EsToolsService esToolsService;
-    private final ElasticsearchTemplate elasticsearchTemplate;
 
     @Autowired
-    public EsToolsController(EsToolsService esToolsService, ElasticsearchTemplate elasticsearchTemplate) {
+    public EsToolsController(EsToolsService esToolsService) {
         this.esToolsService = esToolsService;
-        this.elasticsearchTemplate = elasticsearchTemplate;
     }
 
     @GetMapping("/loadData")
@@ -110,14 +100,14 @@ public class EsToolsController {
         return esToolsService.dayTaskLoadBlogData(blogDataDTO);
     }
 
-    @PostMapping("/dayTask/update/userFans")
-    public String dayTaskUpdateUserFans(@RequestBody List<UserFansDTO> userFansDTOList) {
-        return esToolsService.dayTaskUpdateUserFans(userFansDTOList);
+    @PostMapping("/dayTask/update/userReports")
+    public String dayTaskUpdateUserReports(@RequestBody List<UserReportDTO> userReport) {
+        return esToolsService.dayTaskUpdateUserReports(userReport);
     }
 
     @PostMapping("/dayTask/update/userLabels")
-    public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabelDTOList) {
-        return esToolsService.dayTaskUpdateUserLabels(userLabelDTOList);
+    public String dayTaskUpdateUserLabels(@RequestBody List<UserLabelDTO> userLabel) {
+        return esToolsService.dayTaskUpdateUserLabels(userLabel);
     }
 
     @GetMapping("/dayTask/forceMerge/user")
@@ -131,8 +121,13 @@ public class EsToolsController {
     }
 
     @PostMapping("/dayTask/update/userInfo")
-    public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfoDTOS) {
-        return esToolsService.dayTaskUpdateUserInfo(userInfoDTOS);
+    public String dayTaskUpdateUserInfo(@RequestBody List<UserInfoDTO> userInfo) {
+        return esToolsService.dayTaskUpdateUserInfo(userInfo);
+    }
+
+    @PostMapping("/dayTask/delete/removeUser")
+    public JSONObject dayTaskDeleteRemoveUser(@RequestBody List<String> uidList) {
+        return esToolsService.dayTaskDeleteRemoveUser(uidList);
     }
 
 }

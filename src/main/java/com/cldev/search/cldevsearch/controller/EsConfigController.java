@@ -58,7 +58,7 @@ public class EsConfigController {
 
     @GetMapping("/refresh/labelMapping")
     public String refreshLabelMapping(@RequestParam String fileName) {
-        return BeanUtil.labelRegistryConfig().updateLabelMapping(fileName);
+        return BeanUtil.searchRegistryConfig().updateLabelMapping(fileName);
     }
 
 }

@@ -1,9 +1,7 @@
 package com.cldev.search.cldevsearch.correlation.process;
 
-import com.cldev.search.cldevsearch.config.CalculationSearchWeightConfig;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.util.CommonUtil;
-import com.cldev.search.cldevsearch.util.SpringContextUtil;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;

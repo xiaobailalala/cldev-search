@@ -1,10 +1,16 @@
 package com.cldev.search.cldevsearch.correlation;
 
+import com.cldev.search.cldevsearch.bo.ReportBO;
 import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.correlation.process.AbstractCalculationBuilder;
 import com.cldev.search.cldevsearch.correlation.process.KolCalculation;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
+import com.cldev.search.cldevsearch.util.BeanUtil;
 import com.cldev.search.cldevsearch.vo.SearchResVO;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -69,10 +75,18 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
     }
 
     protected BoolQueryBuilder resolverContext() {
-        String article = searchConditionDTO.getContext();
-        if (!StringUtils.isEmpty(article)) {
-            this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("article", article));
-            return this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("article", article));
+        String context = searchConditionDTO.getContext();
+        if (!StringUtils.isEmpty(context)) {
+            List<String> screenName = BeanUtil.searchRegistryConfig().getScreenName(context);
+            if (screenName.size() == 0) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("article", context));
+                return this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("article", context));
+            }
+            for (String name : screenName) {
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchQueryBuilder("article", name));
+                this.boolQueryBuilder = this.boolQueryBuilder.should(new MatchPhraseQueryBuilder("article", name));
+            }
+            return this.boolQueryBuilder;
         }
         return null;
     }
@@ -90,7 +104,8 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         for (SearchHit hit : hits) {
             Map<String, Object> source = hit.getSourceAsMap();
             searchResultTempBos.add(new SearchResultTempBO(source.get("uid").toString(), null, null,
-                    hit.getScore(), source.get("time").toString(), null, null, null, null, null));
+                    hit.getScore(), source.get("time").toString(),
+                    null, null, null, null, null, null, null, null));
         }
         // 对结果集 List 根据 uid 去重，得到uid集合
         List<String> uidList = searchResultTempBos.stream()
@@ -108,16 +123,23 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         Map<String, SearchResultTempBO> searchResVoMap = new HashMap<>(1400);
         for (SearchHit documentFields : infoHit) {
             Map<String, Object> source = documentFields.getSourceAsMap();
+            String[] infos = source.get("info").toString().split("@");
             searchResVoMap.put(documentFields.getId(),
                     new SearchResultTempBO(documentFields.getId(),
                             Integer.parseInt(source.get("fans").toString()),
                             Float.parseFloat(source.get("score").toString()),
-                            null, null, null,
-                            (List<Integer>) source.get("label"), source.get("address").toString(),
-                            source.get("province").toString(), Integer.parseInt(source.get("sex").toString())));
+                            null, null, source.get("name").toString(),
+                            (List<Integer>) source.get("label.id"), (List<Double>) source.get("label.score"),
+                            (List<Integer>) source.get("label.show"), source.get("address").toString(),
+                            source.get("province").toString(), Integer.parseInt(source.get("sex").toString()),
+                            new ReportBO().setAttitudeSum(Long.parseLong(infos[0])).setAttitudeMax(Long.parseLong(infos[1])).setAttitudeMedian(Long.parseLong(infos[2]))
+                                    .setCommentSum(Long.parseLong(infos[3])).setCommentMax(Long.parseLong(infos[4])).setCommentMedian(Long.parseLong(infos[5]))
+                                    .setRepostSum(Long.parseLong(infos[6])).setRepostMax(Long.parseLong(infos[7])).setRepostMedian(Long.parseLong(infos[8]))
+                                    .setMblogTotal(Long.parseLong(infos[9])).setReleaseMblogFrequency(Double.parseDouble(infos[10]))
+                                    .setRepostRatio(Float.parseFloat(infos[11]))));
         }
         List<SearchResultTempBO> result = new LinkedList<>();
-        Float[] floats = mergeUid(uidList, searchResultTempBos);
+        Float[] floats = operatorRankByScore(mergeUid(searchResVoMap, searchResultTempBos));
         long scoreNormalization = System.currentTimeMillis();
         floats = scoreNormalization(floats);
         this.searchLogInfo.append("------ score normalization : ").append(System.currentTimeMillis() - scoreNormalization).append("ms\n");
@@ -125,18 +147,18 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
             SearchResultTempBO searchResVO = searchResVoMap.get(uidList.get(item));
             if (!ObjectUtils.isEmpty(searchResVO)) {
                 result.add(new SearchResultTempBO(uidList.get(item), searchResVO.getWbFans(),
-                        searchResVO.getScore(), floats[item], null, null, searchResVO.getLabels(),
-                        searchResVO.getAddress(), searchResVO.getProvince(), searchResVO.getSex()));
+                        searchResVO.getScore(), floats[item], null, searchResVO.getName(), searchResVO.getLabels(), searchResVO.getScores(),
+                        searchResVO.getShowLabels(), searchResVO.getAddress(), searchResVO.getProvince(), searchResVO.getSex(), searchResVO.getReport()));
             }
         }
         this.searchLogInfo.append("-------- blog operator total : ").append(System.currentTimeMillis() - start).append("ms\n");
         return result;
     }
 
-    private Float[] mergeUid(List<String> uidList, List<SearchResultTempBO> searchResultTempBos) {
+    private List<ScoreOperation> mergeUid(Map<String, SearchResultTempBO> searchResVoMap, List<SearchResultTempBO> searchResultTempBos) {
         // 对博文结果集进行合并、分权操作
         long uidNum = System.currentTimeMillis();
-        Float[] floats = new Float[uidList.size()];
+        List<ScoreOperation> scoreOperations = new LinkedList<>();
         List<SearchResultTempBO> sortByCorrelationScore = searchResultTempBos.stream().sorted((item1, item2) -> {
             if (item1.getUid().compareTo(item2.getUid()) == 0) {
                 return item2.getCorrelationScore().compareTo(item1.getCorrelationScore());
@@ -152,28 +174,56 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         String currentUid = sortByCorrelationScore.size() == 0 ? "" : sortByCorrelationScore.get(0).getUid();
         float factorForCorrelationScore = 1.0f, factorForCreateTime = 1.0f,
                 resForCorrelationScore = 0.0f, resForCreateTime = 0.0f;
-        int sortListIndex = 0;
+        int sortListIndex = 0, sameBlogCount = 0;
         for (int item = 0; item < sortByCorrelationScore.size(); item++) {
             if (!currentUid.equals(sortByCorrelationScore.get(item).getUid())) {
+                SearchResultTempBO searchResultTemp = searchResVoMap.get(currentUid);
                 currentUid = sortByCorrelationScore.get(item).getUid();
-                floats[sortListIndex++] = resForCorrelationScore * weightConfig().getScoreWeight() +
-                        resForCreateTime * weightConfig().getTimeWeight();
+                scoreOperations.add(new ScoreOperation().setIndex(sortListIndex++)
+                        .setScore(resForCorrelationScore * weightConfig().getScoreWeight() + resForCreateTime * weightConfig().getTimeWeight())
+                        .setFrequency((float) sameBlogCount / searchResultTemp.getReport().getMblogTotal()));
                 factorForCorrelationScore = 1.0f;
                 factorForCreateTime = 1.0f;
                 resForCorrelationScore = 0.0f;
                 resForCreateTime = 0.0f;
+                sameBlogCount = 0;
             }
             resForCorrelationScore += sortByCorrelationScore.get(item).getCorrelationScore() * factorForCorrelationScore;
             resForCreateTime += sortByCreateTime.get(item).getCorrelationScore() * factorForCreateTime;
             factorForCorrelationScore *= weightConfig().getDecayFactorByScore();
             factorForCreateTime *= weightConfig().getDecayFactorByTime();
+            sameBlogCount++;
         }
         if (sortByCorrelationScore.size() != 0) {
-            floats[sortListIndex] = resForCorrelationScore * weightConfig().getScoreWeight()+
-                    resForCreateTime * weightConfig().getTimeWeight();
+            SearchResultTempBO searchResultTemp = searchResVoMap.get(currentUid);
+            scoreOperations.add(new ScoreOperation()
+                    .setIndex(sortListIndex)
+                    .setScore(resForCorrelationScore * weightConfig().getScoreWeight() + resForCreateTime * weightConfig().getTimeWeight())
+                    .setFrequency((float) sameBlogCount / searchResultTemp.getReport().getMblogTotal()));
         }
         this.searchLogInfo.append("------ the same uid merge : ").append(System.currentTimeMillis() - uidNum).append("ms\n");
-        return floats;
+        return scoreOperations;
+    }
+
+    private Float[] operatorRankByScore(List<ScoreOperation> scoreOperations) {
+        scoreOperations.sort((o1, o2) -> o2.getFrequency().compareTo(o1.getFrequency()));
+        float upper = weightConfig().getHitPercentUpperLimit(),
+                differentPercent = (upper - weightConfig().getHitPercentLowerLimit()) / scoreOperations.size();
+        for (int item = 0; item < scoreOperations.size(); item++) {
+            scoreOperations.get(item).setScore(scoreOperations.get(item).getScore() * (upper - differentPercent * (item + 1)));
+        }
+        scoreOperations.sort(Comparator.comparing(ScoreOperation::getIndex));
+        return scoreOperations.stream().map(ScoreOperation::getScore).toArray(Float[]::new);
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Accessors(chain = true)
+    private class ScoreOperation {
+        private Integer index;
+        private Float score;
+        private Float frequency;
     }
 
 }

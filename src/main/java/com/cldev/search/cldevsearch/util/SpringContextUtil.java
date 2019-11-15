@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.util;
 
+import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -46,4 +47,5 @@ public class SpringContextUtil implements ApplicationContextAware {
     public static ApplicationContext getContext() {
         return context;
     }
+
 }

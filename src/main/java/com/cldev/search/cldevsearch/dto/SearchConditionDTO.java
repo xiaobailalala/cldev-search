@@ -1,15 +1,12 @@
 package com.cldev.search.cldevsearch.dto;
 
-import com.cldev.search.cldevsearch.config.LabelRegistryConfig;
 import com.cldev.search.cldevsearch.util.BeanUtil;
 import lombok.*;
 import lombok.experimental.Accessors;
-import org.springframework.context.support.ApplicationObjectSupport;
 import org.springframework.util.ObjectUtils;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -44,6 +41,11 @@ import java.util.Objects;
 @NoArgsConstructor
 @Accessors(chain = true)
 public class SearchConditionDTO {
+
+    /**
+     * If the user is in the login state, the user id is needed to obtain the label score information
+     */
+    private String uid;
 
     /**
      * Search content, from the search box content
@@ -131,7 +133,7 @@ public class SearchConditionDTO {
     }
 
     public List<Integer> getInterest() {
-        return BeanUtil.labelRegistryConfig().getInterest(interest);
+        return BeanUtil.searchRegistryConfig().getInterest(interest);
     }
 
     @Getter
@@ -239,293 +241,6 @@ public class SearchConditionDTO {
             this.from = from;
             this.to = to;
         }
-    }
-
-    @Getter
-    private enum EnumInterest {
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_1("财经", 0),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_2("家居", 1),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_3("数码", 2),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_4("校园", 3),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_5("电影", 4),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_6("游戏", 5),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_7("音乐", 6),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_8("旅游", 7),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_9("美食", 8),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_10("国画", 9),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_11("健康医疗", 10),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_12("汽车", 11),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_13("动漫", 12),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_14("时尚美妆", 13),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_15("读书", 14),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_16("政府", 15),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_17("社会团体", 16),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_18("媒体", 17),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_19("运动健身", 18),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_20("体育", 19),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_21("娱乐", 20),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_22("收藏", 21),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_23("商务服务", 22),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_24("萌宠", 23),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_25("互联网", 24),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_26("教育", 25),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_27("生活服务", 26),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_28("母婴", 27),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_29("三农", 28),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_30("摄影", 29),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_31("综艺", 30),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_32("设计", 31),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_33("婚庆服务", 32),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_34("公益", 33),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_35("工农贸易", 34),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_36("房地产", 35),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_37("日用百货", 36),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_38("情感", 37),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_39("机构场所", 38),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_40("法律", 39),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_41("星座", 40),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_42("宗教", 41),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_43("海外", 42),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_44("职场", 43),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_45("科学科普", 44),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_46("书法", 45),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_47("健康养生", 46),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_48("舞蹈", 47),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_49("军事", 48),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_50("航空", 49),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_51("武术", 50),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_52("历史", 51),
-
-        /**
-         * For filtering areas of interest when searching
-         */
-        INTEREST_53("家电办公", 52);
-
-        private String interestName;
-        private Integer code;
-
-        EnumInterest(String interestName, Integer code) {
-            this.interestName = interestName;
-            this.code = code;
-        }
-
-        static EnumInterest getInterest(String interestName) {
-            for (EnumInterest interest : EnumInterest.values()) {
-                if (interestName.equals(interest.interestName)) {
-                    return interest;
-                }
-            }
-            return null;
-        }
-
     }
 
 }

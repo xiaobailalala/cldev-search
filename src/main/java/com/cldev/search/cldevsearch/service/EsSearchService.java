@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch.service;
 
+import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.vo.SearchResVO;
 
@@ -40,6 +41,6 @@ public interface EsSearchService {
      * @param searchConditionDTO Search criteria and filter criteria, attribute details view {@link SearchConditionDTO}
      * @return KOL people list information, attributes details view {@link SearchResVO}
      */
-    List<SearchResVO> uidSearch(SearchConditionDTO searchConditionDTO);
+    List<SearchResultTempBO> uidSearch(SearchConditionDTO searchConditionDTO);
 
 }

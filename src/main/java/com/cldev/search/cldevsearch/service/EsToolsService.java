@@ -1,7 +1,8 @@
 package com.cldev.search.cldevsearch.service;
 
+import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
-import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserReportDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 
@@ -109,20 +110,20 @@ public interface EsToolsService {
      * The updated number of users' fans per day is imported into es,
      * and the original number of users' fans is updated
      *
-     * @param userFansDTOList User fans set
+     * @param userReport User fans set
      * @return Execution status
      */
-    String dayTaskUpdateUserFans(List<UserFansDTO> userFansDTOList);
+    String dayTaskUpdateUserReports(List<UserReportDTO> userReport);
 
     /**
      * Tasks that need to be performed every day
      * The updated number of users' labels per day is imported into es,
      * and the original number of users' labels is updated
      *
-     * @param userLabelDTOList User label set
+     * @param userLabel User label set
      * @return Execution status
      */
-    String dayTaskUpdateUserLabels(List<UserLabelDTO> userLabelDTOList);
+    String dayTaskUpdateUserLabels(List<UserLabelDTO> userLabel);
 
     /**
      * After the end of the user day, you need to merge segments
@@ -146,8 +147,15 @@ public interface EsToolsService {
      * Tasks that need to be performed every day
      * The updated number of users' info per day is imported into es,
      * and the original number of users' info is updated
-     * @param userInfoDTOS User info
+     * @param userInfo User info
      * @return Execution status
      */
-    String dayTaskUpdateUserInfo(List<UserInfoDTO> userInfoDTOS);
+    String dayTaskUpdateUserInfo(List<UserInfoDTO> userInfo);
+
+    /**
+     * 根据用户id集合删除es中的相关信息
+     * @param uidList 用户uid集合
+     * @return es操作返回状态码
+     */
+    JSONObject dayTaskDeleteRemoveUser(List<String> uidList);
 }

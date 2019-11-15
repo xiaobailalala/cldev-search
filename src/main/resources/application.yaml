@@ -2,12 +2,48 @@ spring:
   data:
     elasticsearch:
       cluster-name: es-search
-      cluster-nodes: 192.168.2.76:9300
+      cluster-nodes: 192.168.2.30:9300
       repositories:
         enabled: true
+  profiles:
+    active: dev
+  datasource:
+    name: user_behaviors
+    url: jdbc:mysql://192.168.2.75:3306/user_behaviors?useUnicode=true&characterEncoding=UTF8&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: cldev
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    filters: stat
+    maxActive: 20
+    initialSize: 1
+    maxWait: 60000
+    minIdle: 1
+    timeBetweenEvictionRunsMillis: 60000
+    minEvictableIdleTimeMillis: 300000
+    validationQuery: select 'x'
+    testWhileIdle: true
+    testOnBorrow: false
+    testOnReturn: false
+    poolPreparedStatements: true
+    maxOpenPreparedStatements: 20
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  type-aliases-package: com.cldev.search.cldevsearch.entity
 server:
   port: 8989
 
 search-config:
   label-mapping-file: "label-mapping-02"
+  name-mapping-file: "name-mapping"
+  news-media-file: "news-media"
+  water-amy-file: "online-water-amy"
   load-data: false
+---
+spring:
+  profiles: dev
+---
+spring:
+  profiles: pro

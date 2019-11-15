@@ -5,11 +5,9 @@ import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
-import com.cldev.search.cldevsearch.util.ChinesePinyinUtil;
-import com.cldev.search.cldevsearch.util.CommonCallBack;
-import com.cldev.search.cldevsearch.util.CommonUtil;
-import com.cldev.search.cldevsearch.util.SimilarityUtil;
-import com.cldev.search.cldevsearch.vo.SearchResVO;
+import com.cldev.search.cldevsearch.entity.UserInterestLabel;
+import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
+import com.cldev.search.cldevsearch.util.*;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hankcs.hanlp.HanLP;
 import lombok.Getter;
@@ -23,6 +21,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+import static com.cldev.search.cldevsearch.util.BeanUtil.searchRegistryConfig;
 import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
 
 /**
@@ -53,6 +52,7 @@ import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
  * @version 1.0
  * @description
  */
+@SuppressWarnings("all")
 public class CalculationSearchFactory implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(CalculationSearchFactory.class);
@@ -74,7 +74,9 @@ public class CalculationSearchFactory implements Runnable {
 
     private ConcurrentLinkedQueue<SearchResultTempBO> userNameIndicesResult = new ConcurrentLinkedQueue<>();
 
-    private List<SearchResVO> resultUid = new LinkedList<>();
+    private List<SearchResultTempBO> resultUid = new LinkedList<>();
+
+    private ConcurrentHashMap<Integer, Float> userInterestLabelScore = new ConcurrentHashMap<>(128);
 
     private StringBuffer searchLogInfo = new StringBuffer("The search process info : \n");
 
@@ -117,11 +119,14 @@ public class CalculationSearchFactory implements Runnable {
                 .append("-------------------- the search condition is : sex-").append(this.condition.getSex()).append(" address-")
                 .append(Arrays.toString(this.condition.getAddress())).append(" interest-").append(this.condition.getInterest())
                 .append(" fansNum-").append(this.condition.getFansNum()).append(" --------------------\n");
+        boolean isUserLogged = !ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid());
         if (StringUtils.isEmpty(condition.getContext())) {
-            this.cyclicBarrier = new CyclicBarrier(2, this);
+            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 3 : 2, this);
+            this.userInterestLabelScoreProcess(isUserLogged);
             this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
         } else {
-            this.cyclicBarrier = new CyclicBarrier(4, this);
+            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 5 : 4, this);
+            this.userInterestLabelScoreProcess(isUserLogged);
             // 用户名检索线程
             this.kolCalculationResultProcess(() -> {
                 try {
@@ -145,7 +150,7 @@ public class CalculationSearchFactory implements Runnable {
                 } catch (Exception e) {
                     this.userIndicesResult.addAll(new ArrayList<>());
                     e.printStackTrace();
-                    logger.error("----------------- userNameIndicesResult search error -----------------");
+                    logger.error("----------------- userInfoIndicesResult search error -----------------");
                 }
             });
             // 博文文档检索线程
@@ -157,7 +162,30 @@ public class CalculationSearchFactory implements Runnable {
                     searchLogInfo.append(blogCalculationSearch.getSearchLogInfo()).append("search blog total: ").append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.blogIndicesResult.addAll(new ArrayList<>());
-                    logger.error("----------------- userNameIndicesResult search error -----------------");
+                    e.printStackTrace();
+                    logger.error("----------------- blogIndicesResult search error -----------------");
+                }
+            });
+        }
+    }
+
+    /**
+     * 若用户处于登录状态，获取用户的兴趣标签信息及分数
+     */
+    private void userInterestLabelScoreProcess(boolean isLogged) {
+        if (isLogged) {
+            this.kolCalculationResultProcess(() -> {
+                try {
+                    long start = System.currentTimeMillis();
+                    UserInterestLabelMapper mapper = BeanUtil.userInterestLabelMapper();
+                    for (UserInterestLabel item : mapper
+                            .select(new UserInterestLabel().setUid(this.condition.getUid()))) {
+                        userInterestLabelScore.put(searchRegistryConfig().getInterestOne(item.getLabel()), item.getRes());
+                    }
+                    searchLogInfo.append("search user interest label : ").append(System.currentTimeMillis() - start).append("ms\n");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logger.error("----------------- user interest label search error -----------------");
                 }
             });
         }
@@ -168,7 +196,7 @@ public class CalculationSearchFactory implements Runnable {
      *
      * @return 最终的数据结果集
      */
-    public List<SearchResVO> searchEnd() {
+    public List<SearchResultTempBO> searchEnd() {
         return this.resultUid;
     }
 
@@ -252,6 +280,9 @@ public class CalculationSearchFactory implements Runnable {
                 }
             }
             influenceScoreWeighting(blogResultFilter);
+            long sortTimeStart = System.currentTimeMillis();
+            relevanceOptimizationRanking(blogResultFilter);
+            this.searchLogInfo.append("sort time : ").append(System.currentTimeMillis() - sortTimeStart).append("ms\n");
             Collections.sort(blogResultFilter);
             resultTemp.addAll(blogResultFilter);
             this.resultUid.addAll(resultTemp);
@@ -265,32 +296,46 @@ public class CalculationSearchFactory implements Runnable {
     private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {
         /* 根据用户名进行字符串相似度排除 */
         long similarityStart = System.currentTimeMillis();
+        List<String> screenName = searchRegistryConfig().getScreenName(condition.getContext());
+        if (screenName.size() == 0) {
+            screenName.add(condition.getContext());
+        }
+        item:
         for (SearchResultTempBO userName : userNameResult) {
-            /* 优先根据原文中字比对 */
-            double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), condition.getContext().toLowerCase());
-            if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
-                continue;
-            }
-            /* 根据繁-简转化后的中字比对 */
-            double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
-                    HanLP.convertToSimplifiedChinese(condition.getContext()).toLowerCase());
-            if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
-                continue;
-            }
-            /* 根据中-拼音转换后的拼音全拼比对 */
-            double compareInPinyin = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
-                    ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
-            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
-                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
-                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
+            for (String name : screenName) {
+                /* 优先根据原文中字比对 */
+                double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), name.toLowerCase());
+                if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
+                    continue item;
+                }
+                /* 去除原文和结果中的特殊字符后进行比对 */
+                if (name.toLowerCase().replaceAll(weightConfig().getNameRegex(), "")
+                        .equals(userName.getName().toLowerCase().replaceAll(weightConfig().getNameRegex(), ""))) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, 1));
+                    continue item;
+                }
+                /* 根据繁-简转化后的中字比对 */
+                double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
+                        HanLP.convertToSimplifiedChinese(name).toLowerCase());
+                if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
+                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
+                    continue item;
+                }
+                /* 根据中-拼音转换后的拼音全拼比对 */
+//            double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
+//                    ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
+//            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
+//                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
+//                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
+//                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
+//            }
                 /* 根据中-拼音转换后的拼音首字母比对 */
-            } /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),
+             /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),
                     ChinesePinyinUtil.getFirstLettersLo(condition.getContext())) >= weightConfig().getUsernameSimilarityPinyinHead()) {
                 userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
             }*/
+            }
         }
         this.searchLogInfo.append("similarity time : ").append(System.currentTimeMillis() - similarityStart).append("ms\n");
     }
@@ -317,7 +362,7 @@ public class CalculationSearchFactory implements Runnable {
                 if (resolverAddress(item.getAddress(), item.getProvince()) &&
                         resolverSex(item.getSex()) &&
                         resolverFansNum(item.getWbFans()) &&
-                        resolverInterest(item.getLabels())) {
+                        resolverInterest(item.getShowLabels())) {
                     searchResult.add(item);
                 }
             }
@@ -366,6 +411,124 @@ public class CalculationSearchFactory implements Runnable {
         return false;
     }
 
+    private void relevanceOptimizationRanking(List<SearchResultTempBO> blogResultFilter) {
+        List<ResultSortByInteractionAbility> tempResult = new LinkedList<>();
+        for (SearchResultTempBO item : blogResultFilter) {
+            tempResult.add(new ResultSortByInteractionAbility(item.getUid(),
+                    item.getReport().getAttitudeMedian(), item.getReport().getCommentMedian(), item.getReport().getRepostMedian(),
+                    item.getReport().getMblogTotal(), item.getReport().getAttitudeSum(), item.getReport().getCommentSum(), item.getReport().getRepostSum()));
+        }
+        Map<String, ScoreWithRank> scoreMapWithInteraction = getScoreMapWithInteraction(tempResult);
+        Map<String, ScoreWithRank> scoreMapWithFrequency = getScoreMapWithDifference(scoreMapWithInteraction, blogResultFilter);
+        Map<String, ScoreWithRank> scoreMapWithRePostRatio = getScoreMapWithRePostRatio(blogResultFilter);
+        Map<String, ScoreWithRank> scoreMapWithInterestLabel = getScoreMapWithInterestLabel(blogResultFilter);
+        Set<String> newsMedia = searchRegistryConfig().getNewsMedia();
+        ConcurrentHashMap<String, Integer> onlineWaterAmy = searchRegistryConfig().getOnlineWaterAmy();
+        float waterAmyDecayPercentUpperLimit = weightConfig().getWaterAmyDecayPercentUpperLimit(),
+                differenceValue = waterAmyDecayPercentUpperLimit - weightConfig().getWaterAmyDecayPercentLowerLimit(),
+                differencePercent = differenceValue / 100;
+        for (SearchResultTempBO item : blogResultFilter) {
+            float score = item.getCorrelationScore() +
+                    scoreMapWithInteraction.get(item.getUid()).getScore() +
+                    scoreMapWithFrequency.get(item.getUid()).getScore() +
+                    scoreMapWithRePostRatio.get(item.getUid()).getScore() +
+                    (ObjectUtils.isEmpty(this.condition.getUid()) || StringUtils.isEmpty(this.condition.getUid()) ? 0.0f
+                            : scoreMapWithInterestLabel.get(item.getUid()).getScore());
+            if (newsMedia.contains(item.getUid())) {
+                score *= weightConfig().getNewsMediaDecayFactor();
+            }
+            Integer waterAmy = onlineWaterAmy.get(item.getUid());
+            if (waterAmy != null) {
+                score *= waterAmyDecayPercentUpperLimit - waterAmy * differencePercent;
+            }
+            item.setCorrelationScore(score);
+        }
+    }
+
+    private Map<String, ScoreWithRank> getScoreMapWithInteraction(List<ResultSortByInteractionAbility> tempResult) {
+        long interactionStart = System.currentTimeMillis();
+        Collections.sort(tempResult);
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        float upperLimit = weightConfig().getInteractionUpperLimit();
+        float decayFactor = upperLimit / tempResult.size();
+        for (int index = 0; index < tempResult.size(); index++) {
+            scoreMap.put(tempResult.get(index).getUid(), new ScoreWithRank(upperLimit - decayFactor * index, index + 1));
+        }
+        this.searchLogInfo.append("------ interaction filter time : ").append(System.currentTimeMillis() - interactionStart).append("ms\n");
+        return scoreMap;
+    }
+
+    private Map<String, ScoreWithRank> getScoreMapWithDifference(Map<String, ScoreWithRank> interactionResultMap, List<SearchResultTempBO> tempResult) {
+        long differenceStart = System.currentTimeMillis();
+        List<SearchResultTempBO> tempList = new LinkedList<>(tempResult);
+        tempList.sort((o1, o2) -> o2.getReport().getReleaseMblogFrequency().compareTo(o1.getReport().getReleaseMblogFrequency()));
+        List<ResultSortByInteractionDifferenceValue> differenceValues = new LinkedList<>();
+        for (int index = 0; index < tempList.size(); index++) {
+            differenceValues.add(new ResultSortByInteractionDifferenceValue(tempList.get(index).getUid(),
+                    interactionResultMap.get(tempList.get(index).getUid()).getRank() - (index + 1)));
+        }
+        Collections.sort(differenceValues);
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        int limitPercentDifference = (int) Math.ceil(tempList.size() * weightConfig().getDifferenceValueDefaultPercent());
+        int percentIndex = 0;
+        float upperLimit = weightConfig().getFrequencyUpperLimit();
+        float decayFactor = upperLimit / tempResult.size();
+        for (int index = 0; index < differenceValues.size(); index++) {
+            Integer difference = differenceValues.get(index).getDifference();
+            scoreMap.put(differenceValues.get(index).getUid(), new ScoreWithRank(difference < limitPercentDifference ?
+                    upperLimit : upperLimit - decayFactor * ++percentIndex, (index + 1)));
+        }
+        this.searchLogInfo.append("------ difference filter time : ").append(System.currentTimeMillis() - differenceStart).append("ms\n");
+        return scoreMap;
+    }
+
+    private Map<String, ScoreWithRank> getScoreMapWithRePostRatio(List<SearchResultTempBO> tempResult) {
+        long rePostRatioStart = System.currentTimeMillis();
+        List<SearchResultTempBO> tempList = new LinkedList<>(tempResult);
+        tempList.sort(Comparator.comparing(o -> o.getReport().getRepostRatio()));
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        float upperLimit = weightConfig().getInteractionUpperLimit();
+        float decayFactor = upperLimit / tempList.size();
+        float ratioDefaultPercent = weightConfig().getRePostRatioDefaultPercent();
+        int percentIndex = 0;
+        for (int index = 0; index < tempList.size(); index++) {
+            Float repostRatio = tempList.get(index).getReport().getRepostRatio();
+            scoreMap.put(tempList.get(index).getUid(), new ScoreWithRank(repostRatio < ratioDefaultPercent ? upperLimit :
+                    upperLimit - decayFactor * ++percentIndex, index + 1));
+        }
+        this.searchLogInfo.append("------ rePost ratio filter time : ").append(System.currentTimeMillis() - rePostRatioStart).append("ms\n");
+        return scoreMap;
+    }
+
+    private Map<String, ScoreWithRank> getScoreMapWithInterestLabel(List<SearchResultTempBO> tempResult) {
+        long interestLabelStart = System.currentTimeMillis();
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        if (!ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid())) {
+            Set<Integer> interest = this.userInterestLabelScore.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+            List<ResultSortByInterestLabelScore> sort = new LinkedList<>();
+            for (SearchResultTempBO searchResult : tempResult) {
+                float scoreSum = 0.0f;
+                for (int item = 0; item < searchResult.getLabels().size(); item++) {
+                    if (interest.contains(searchResult.getLabels().get(item))) {
+                        Float userScore = this.userInterestLabelScore.get(searchResult.getLabels().get(item));
+                        Double kolScore = searchResult.getScores().get(item);
+                        scoreSum += userScore * kolScore;
+                    }
+                }
+                sort.add(new ResultSortByInterestLabelScore(searchResult.getUid(), scoreSum));
+            }
+            Collections.sort(sort);
+            float upperLimit = weightConfig().getRelevanceLabelUpperLimit();
+            float decayFactor = (upperLimit - weightConfig().getRelevanceLabelLowerLimit()) / tempResult.size();
+            for (int item = 0; item < sort.size(); item++) {
+                scoreMap.put(sort.get(item).getUid(), new ScoreWithRank(upperLimit - decayFactor * (item + 1)
+                        , item + 1));
+            }
+        }
+        this.searchLogInfo.append("------ interest label operator time : ").append(System.currentTimeMillis() - interestLabelStart).append("ms\n");
+        return scoreMap;
+    }
+
     private class SearchResultTempBoWithSimilarityScore implements Comparable<SearchResultTempBoWithSimilarityScore> {
 
         @Getter
@@ -378,7 +541,6 @@ public class CalculationSearchFactory implements Runnable {
         }
 
         @Override
-        @SuppressWarnings("all")
         public int compareTo(SearchResultTempBoWithSimilarityScore o) {
             int sortBySimilarityScore = Double.compare(o.similarityScore, this.similarityScore);
             if (sortBySimilarityScore == 0) {
@@ -388,11 +550,99 @@ public class CalculationSearchFactory implements Runnable {
         }
     }
 
-    /**
-     * 官微处理
-     */
-    private void OfficialMicroOperator() {
+    private class ResultSortByInteractionAbility implements Comparable<ResultSortByInteractionAbility> {
 
+        @Getter
+        private String uid;
+        private Long attitudeMedian;
+        private Long commentMedian;
+        private Long repostMedian;
+        private Long blogTotal;
+        private Long attitudeSum;
+        private Long commentSum;
+        private Long repostSum;
+        private Float medianScore;
+
+        ResultSortByInteractionAbility(String uid, Long attitudeMedian, Long commentMedian, Long repostMedian, Long blogTotal, Long attitudeSum, Long commentSum, Long repostSum) {
+            this.uid = uid;
+            this.attitudeMedian = attitudeMedian;
+            this.commentMedian = commentMedian;
+            this.repostMedian = repostMedian;
+            this.blogTotal = blogTotal;
+            this.attitudeSum = attitudeSum;
+            this.commentSum = commentSum;
+            this.repostSum = repostSum;
+            this.medianScore = weightConfig().getAttitudeWeight() * this.attitudeMedian +
+                    weightConfig().getCommentWeight() * this.commentMedian +
+                    weightConfig().getRepostWeight() * this.repostMedian;
+        }
+
+        @Override
+        public int compareTo(ResultSortByInteractionAbility o) {
+            int medianScoreCompare = Float.compare(o.medianScore, this.medianScore);
+            if (medianScoreCompare != 0) {
+                return medianScoreCompare;
+            }
+            if (this.blogTotal == 0) {
+                return -1;
+            }
+            Float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
+                    this.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
+                    this.repostSum * weightConfig().getRepostWeight() / this.blogTotal;
+            Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / o.blogTotal +
+                    o.commentSum * weightConfig().getCommentWeight() / o.blogTotal +
+                    o.repostSum * weightConfig().getCommentWeight() / o.blogTotal;
+            return Float.compare(otherSumScore, thisSumScore);
+        }
+    }
+
+    private class ResultSortByInteractionDifferenceValue implements Comparable<ResultSortByInteractionDifferenceValue> {
+
+        @Getter
+        private String uid;
+        @Getter
+        private Integer difference;
+
+        ResultSortByInteractionDifferenceValue(String uid, Integer difference) {
+            this.uid = uid;
+            this.difference = difference;
+        }
+
+        @Override
+        public int compareTo(ResultSortByInteractionDifferenceValue o) {
+            return this.difference.compareTo(o.difference);
+        }
+    }
+
+    private class ResultSortByInterestLabelScore implements Comparable<ResultSortByInterestLabelScore> {
+
+        @Getter
+        private String uid;
+        @Getter
+        private Float score;
+
+        ResultSortByInterestLabelScore(String uid, Float score) {
+            this.uid = uid;
+            this.score = score;
+        }
+
+        @Override
+        public int compareTo(ResultSortByInterestLabelScore o) {
+            return o.score.compareTo(o.score);
+        }
+    }
+
+    private class ScoreWithRank {
+
+        @Getter
+        private Float score;
+        @Getter
+        private Integer rank;
+
+        ScoreWithRank(Float score, Integer rank) {
+            this.score = score;
+            this.rank = rank;
+        }
     }
 
 }

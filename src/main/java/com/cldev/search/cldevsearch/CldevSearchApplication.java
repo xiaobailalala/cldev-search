@@ -1,5 +1,6 @@
 package com.cldev.search.cldevsearch;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @version 1.0
  */
 @SpringBootApplication
+@MapperScan("com.cldev.search.cldevsearch.mapper")
 public class CldevSearchApplication {
 
     public static void main(String[] args) {

@@ -3,7 +3,7 @@ package com.cldev.search.cldevsearch.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.cldev.search.cldevsearch.bo.BlogBO;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
-import com.cldev.search.cldevsearch.dto.UserFansDTO;
+import com.cldev.search.cldevsearch.dto.UserReportDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
 import com.cldev.search.cldevsearch.process.common.AbstractHostLoadProcess;
@@ -20,6 +20,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -115,9 +118,6 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .startObject("_all")
                                     .field("enabled", false)
                                     .endObject()
-                                    .startObject("_source")
-                                    .field("excludes", Collections.singletonList("description"))
-                                    .endObject()
                                     .startObject("properties")
                                     .startObject("uid")
                                     .field("type", "long")
@@ -130,6 +130,12 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("doc_values", false)
                                     .endObject()
                                     .startObject("name")
+                                    .field("type", "text")
+                                    .field("analyzer", "ik_tsconvert_pinyin_analyzer")
+                                    .field("search_analyzer", "ik_tsconvert_pinyin_analyzer_search")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("reason")
                                     .field("type", "text")
                                     .field("analyzer", "ik_tsconvert_pinyin_analyzer")
                                     .field("search_analyzer", "ik_tsconvert_pinyin_analyzer_search")
@@ -155,8 +161,20 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("type", "float")
                                     .field("doc_values", false)
                                     .endObject()
-                                    .startObject("label")
+                                    .startObject("label.id")
                                     .field("type", "byte")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("label.score")
+                                    .field("type", "double")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("label.show")
+                                    .field("type", "byte")
+                                    .field("doc_values", false)
+                                    .endObject()
+                                    .startObject("info")
+                                    .field("type", "keyword")
                                     .field("doc_values", false)
                                     .endObject()
                                     .endObject()
@@ -176,15 +194,34 @@ public class EsToolsServiceImpl implements EsToolsService {
         File scoreMap = new File("C:\\Users\\cl24\\Desktop\\mysql.csv");
         InputStreamReader input;
         Map<String, String> scoreMapping = new HashMap<>(800000);
+        Map<String, String> userInfoMap = new HashMap<>(1179648);
+        Set<String> userId50w = new HashSet<>(1048576);
         try {
+            BufferedReader bufferedReader50w = new BufferedReader(new FileReader("C:\\Users\\cl24\\Desktop\\uid_50w.csv"));
+            String uid;
+            while ((uid = bufferedReader50w.readLine()) != null) {
+                userId50w.add(uid);
+            }
+            bufferedReader50w.close();
             input = new InputStreamReader(new FileInputStream(scoreMap));
             BufferedReader bufferedReader = new BufferedReader(input);
             String str;
             while ((str = bufferedReader.readLine()) != null) {
-                scoreMapping.put(str.split(",")[0], str.split(",")[1]);
+                if (userId50w.contains(str.split(",")[0])) {
+                    scoreMapping.put(str.split(",")[0], str.split(",")[1]);
+                }
             }
             bufferedReader.close();
             input.close();
+            File userInfoFile = new File("userInfo");
+            FileReader fileReader = new FileReader(userInfoFile);
+            BufferedReader reader = new BufferedReader(fileReader);
+            String msg;
+            while ((msg = reader.readLine()) != null) {
+                userInfoMap.put(msg.split("-")[0], msg.substring(msg.indexOf("-") + 1));
+            }
+            reader.close();
+            fileReader.close();
         } catch (IOException e1) {
             e1.printStackTrace();
         }
@@ -194,10 +231,12 @@ public class EsToolsServiceImpl implements EsToolsService {
             String sql = "SELECT fans_total FROM user_state WHERE uid = ?";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             ssdb = new SSDB("192.168.2.55", 8889);
-            String[] files = {"uid_80w.csv"};
+            String[] files = {"uid_50w.csv"};
             int count = 0;
             Jedis jedis = new Jedis("192.168.2.11", 6399);
             jedis.auth("cldev");
+            Jedis jedisWithoutScore = new Jedis("192.168.2.11", 6409);
+            jedisWithoutScore.auth("cldev");
             BulkRequestBuilder builder = esTemplate.getClient().prepareBulk();
             int limit = 100000;
             for (String file : files) {
@@ -210,14 +249,28 @@ public class EsToolsServiceImpl implements EsToolsService {
                     JSONObject jsonObject = JSONObject.parseObject(new String(userInfo));
                     String labels = jedis.get(uid);
                     int[] labelArr;
+                    double[] labelScore;
                     if (labels != null && !"".equals(labels)) {
                         String[] split = labels.split(",");
                         labelArr = new int[split.length];
+                        labelScore = new double[split.length];
                         for (int i = 0; i < split.length; i++) {
-                            labelArr[i] = Integer.parseInt(split[i]);
+                            labelArr[i] = Integer.parseInt(split[i].split("-")[0]);
+                            labelScore[i] = Double.parseDouble(split[i].split("-")[1]);
                         }
                     } else {
                         labelArr = new int[0];
+                        labelScore = new double[0];
+                    }
+                    String labelWithoutScore = jedisWithoutScore.get(uid);
+                    int[] labelWithoutScoreArr;
+                    if (labelWithoutScore != null && !"".equals(labelWithoutScore)) {
+                        labelWithoutScoreArr = new int[labelWithoutScore.split("-").length];
+                        for (int item = 0; item < labelWithoutScore.split("-").length; item++) {
+                            labelWithoutScoreArr[item] = Integer.parseInt(labelWithoutScore.split("-")[item]);
+                        }
+                    } else {
+                        labelWithoutScoreArr = new int[0];
                     }
                     String fans = null;
                     preparedStatement.setString(1, uid);
@@ -237,7 +290,11 @@ public class EsToolsServiceImpl implements EsToolsService {
                                     .field("sex", "f".equals(jsonObject.getString("gender")) ? "2" : "1")
                                     .field("fans", fans == null ? 0 : fans)
                                     .field("score", score == null ? 0.0f : Float.parseFloat(score))
-                                    .field("label", labelArr)
+                                    .field("label.id", labelArr)
+                                    .field("label.score", labelScore)
+                                    .field("label.show", labelWithoutScoreArr)
+                                    .field("reason", jsonObject.getString("verified_reason"))
+                                    .field("info", userInfoMap.get(uid))
                                     .endObject()));
                     count++;
                     if (count % limit == 0) {
@@ -323,20 +380,38 @@ public class EsToolsServiceImpl implements EsToolsService {
     }
 
     @Override
-    public String dayTaskUpdateUserFans(List<UserFansDTO> userFansDTOList) {
+    public String dayTaskUpdateUserReports(List<UserReportDTO> userReportDTOList) {
         Client client = esTemplate.getClient();
         BulkRequestBuilder builder = client.prepareBulk();
-        for (UserFansDTO item : userFansDTOList) {
+        for (UserReportDTO item : userReportDTOList) {
+            String info = item.getAttitudeSum() + "@" +
+                    item.getAttitudeMax() + "@" +
+                    item.getAttitudeMedian() + "@" +
+                    item.getCommentSum() + "@" +
+                    item.getCommentMax() + "@" +
+                    item.getCommentMedian() + "@" +
+                    item.getRepostSum() + "@" +
+                    item.getRepostMax() + "@" +
+                    item.getRepostMedian() + "@" +
+                    item.getMblogTotal() + "@" +
+                    item.getReleaseMblogFrequency() + "@" +
+                    item.getRepostRatio();
             try {
-                builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(XContentFactory.jsonBuilder()
-                        .startObject()
-                        .field("fans", item.getFans())
+                XContentBuilder jsonBuilder = XContentFactory.jsonBuilder().startObject();
+                if (!ObjectUtils.isEmpty(item.getFans()) && !StringUtils.isEmpty(item.getFans())) {
+                    jsonBuilder = jsonBuilder.field("fans", item.getFans());
+                }
+                builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(jsonBuilder
+                        .field("info", info)
                         .endObject()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        builder.get();
+        int count = 0;
+        while (builder.get().hasFailures()) {
+            System.out.println("update reports error" + count++);
+        }
         return "success";
     }
 
@@ -416,6 +491,12 @@ public class EsToolsServiceImpl implements EsToolsService {
                 if (!ObjectUtils.isEmpty(item.getSex()) && !StringUtils.isEmpty(item.getSex())) {
                     jsonBuilder = jsonBuilder.field("sex", item.getSex());
                 }
+                if (!ObjectUtils.isEmpty(item.getDescription()) && !StringUtils.isEmpty(item.getDescription())) {
+                    jsonBuilder = jsonBuilder.field("description", item.getDescription());
+                }
+                if (!ObjectUtils.isEmpty(item.getReason()) && !StringUtils.isEmpty(item.getReason())) {
+                    jsonBuilder = jsonBuilder.field("reason", item.getReason());
+                }
                 builder.add(client.prepareUpdate("wb-user-1569427200000", "user", item.getUid()).setDoc(jsonBuilder.endObject()));
             } catch (IOException e) {
                 e.printStackTrace();
@@ -423,6 +504,51 @@ public class EsToolsServiceImpl implements EsToolsService {
         }
         builder.get();
         return "success";
+    }
+
+    @Override
+    public JSONObject dayTaskDeleteRemoveUser(List<String> uidList) {
+        JSONObject response = new JSONObject();
+        response.put("artIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-art/_delete_by_query",
+                getRequestBody(new JSONObject()
+                        .fluentPut("query", new JSONObject()
+                                .fluentPut("terms", new JSONObject()
+                                        .fluentPut("uid", uidList.toArray(new String[0])))).toJSONString()),
+                JSONObject.class));
+        response.put("userIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-user/_delete_by_query",
+                getRequestBody(new JSONObject()
+                        .fluentPut("query", new JSONObject()
+                                .fluentPut("terms", new JSONObject()
+                                        .fluentPut("_id", uidList.toArray(new String[0])))).toJSONString()),
+                JSONObject.class));
+        asyncTaskUtil.asyncCustomTask(() -> {
+            List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
+            assert indicesList != null;
+            List<String> indices = new LinkedList<>();
+            for (Object item : indicesList) {
+                String index = ((LinkedHashMap) item).get("index").toString();
+                if (index.startsWith("wb-art")) {
+                    indices.add(index);
+                }
+            }
+            for (String index : indices) {
+                restTemplate.postForObject("http://192.168.2.76:9200/" + index + "/_forcemerge?max_num_segments=1",
+                        null,
+                        Object.class);
+            }
+            restTemplate.postForObject("http://192.168.2.76:9200/wb-user-1569427200000/_forcemerge?max_num_segments=1",
+                    null,
+                    Object.class);
+        });
+        return response;
+    }
+
+    private synchronized <T> HttpEntity<T> getRequestBody(T requestStr) {
+        HttpHeaders headers = new HttpHeaders();
+        MediaType type = MediaType.parseMediaType("application/json; charset=UTF-8");
+        headers.setContentType(type);
+        headers.add("Accept", MediaType.APPLICATION_JSON.toString());
+        return new HttpEntity<>(requestStr, headers);
     }
 
     private Indices getNewBlogIndices() {
@@ -578,11 +704,13 @@ public class EsToolsServiceImpl implements EsToolsService {
                  */
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.type", "custom")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.tokenizer", "ik_smart")
-                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert", "pinyin_filter")
+//                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert", "pinyin_filter")
+                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer.filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer.char_filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.type", "custom")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.tokenizer", "ik_smart")
-                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert", "pinyin_filter")
+//                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert", "pinyin_filter")
+                .putList("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.filter", "tsconvert")
                 .put("analysis.analyzer.ik_tsconvert_pinyin_analyzer_search.char_filter", "tsconvert")
                 /* setting filter properties
                   "filter": {
@@ -605,11 +733,11 @@ public class EsToolsServiceImpl implements EsToolsService {
                 .put("analysis.filter.tsconvert.delimiter", "#")
                 .put("analysis.filter.tsconvert.keep_both", false)
                 .put("analysis.filter.tsconvert.convert_type", "t2s")
-                .put("analysis.filter.pinyin_filter.type", "pinyin")
-                .put("analysis.filter.pinyin_filter.keep_first_letter", true)
-                .put("analysis.filter.pinyin_filter.keep_separate_first_letter", true)
-                .put("analysis.filter.pinyin_filter.keep_original", false)
-                .put("analysis.filter.pinyin_filter.lowercase", true)
+//                .put("analysis.filter.pinyin_filter.type", "pinyin")
+//                .put("analysis.filter.pinyin_filter.keep_first_letter", true)
+//                .put("analysis.filter.pinyin_filter.keep_separate_first_letter", true)
+//                .put("analysis.filter.pinyin_filter.keep_original", false)
+//                .put("analysis.filter.pinyin_filter.lowercase", true)
                 /* setting char_filter properties
                   "char_filter": {
                     "tsconvert": {

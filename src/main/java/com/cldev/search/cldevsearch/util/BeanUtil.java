@@ -1,8 +1,9 @@
 package com.cldev.search.cldevsearch.util;
 
 import com.cldev.search.cldevsearch.config.CalculationSearchWeightConfig;
-import com.cldev.search.cldevsearch.config.LabelRegistryConfig;
+import com.cldev.search.cldevsearch.config.SearchRegistryConfig;
 import com.cldev.search.cldevsearch.config.SearchConfig;
+import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -42,8 +43,12 @@ public class BeanUtil {
         return SpringContextUtil.getContext().getBean(SearchConfig.class);
     }
 
-    public static LabelRegistryConfig labelRegistryConfig() {
-        return SpringContextUtil.getContext().getBean(LabelRegistryConfig.class);
+    public static SearchRegistryConfig searchRegistryConfig() {
+        return SpringContextUtil.getContext().getBean(SearchRegistryConfig.class);
+    }
+
+    public static UserInterestLabelMapper userInterestLabelMapper() {
+        return SpringContextUtil.getContext().getBean(UserInterestLabelMapper.class);
     }
 
 }
