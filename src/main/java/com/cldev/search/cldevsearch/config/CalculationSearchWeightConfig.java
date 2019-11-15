@@ -281,6 +281,12 @@ public class CalculationSearchWeightConfig {
     @Getter
     private volatile float hitPercentLowerLimit = 0.5f;
 
+    @Getter
+    private volatile float relevanceLabelUpperLimit = 1.0f;
+
+    @Getter
+    private volatile float relevanceLabelLowerLimit = 0.5f;
+
     /**
      * Some weights require a sum of 1,
      * so define the complementary factor to determine the sum of complementary weights

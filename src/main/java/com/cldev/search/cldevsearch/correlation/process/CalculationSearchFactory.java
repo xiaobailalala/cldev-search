@@ -421,20 +421,19 @@ public class CalculationSearchFactory implements Runnable {
         Map<String, ScoreWithRank> scoreMapWithInteraction = getScoreMapWithInteraction(tempResult);
         Map<String, ScoreWithRank> scoreMapWithFrequency = getScoreMapWithDifference(scoreMapWithInteraction, blogResultFilter);
         Map<String, ScoreWithRank> scoreMapWithRePostRatio = getScoreMapWithRePostRatio(blogResultFilter);
+        Map<String, ScoreWithRank> scoreMapWithInterestLabel = getScoreMapWithInterestLabel(blogResultFilter);
         Set<String> newsMedia = searchRegistryConfig().getNewsMedia();
         ConcurrentHashMap<String, Integer> onlineWaterAmy = searchRegistryConfig().getOnlineWaterAmy();
         float waterAmyDecayPercentUpperLimit = weightConfig().getWaterAmyDecayPercentUpperLimit(),
                 differenceValue = waterAmyDecayPercentUpperLimit - weightConfig().getWaterAmyDecayPercentLowerLimit(),
                 differencePercent = differenceValue / 100;
         for (SearchResultTempBO item : blogResultFilter) {
-//            if ("1002896570".equals(item.getUid())) {
-                System.out.println(item.getCorrelationScore() + " " + scoreMapWithInteraction.get(item.getUid()).getScore() + " " +
-                        scoreMapWithFrequency.get(item.getUid()).getScore() + " " + scoreMapWithRePostRatio.get(item.getUid()).getScore());
-//            }
             float score = item.getCorrelationScore() +
                     scoreMapWithInteraction.get(item.getUid()).getScore() +
                     scoreMapWithFrequency.get(item.getUid()).getScore() +
-                    scoreMapWithRePostRatio.get(item.getUid()).getScore();
+                    scoreMapWithRePostRatio.get(item.getUid()).getScore() +
+                    (ObjectUtils.isEmpty(this.condition.getUid()) || StringUtils.isEmpty(this.condition.getUid()) ? 0.0f
+                            : scoreMapWithInterestLabel.get(item.getUid()).getScore());
             if (newsMedia.contains(item.getUid())) {
                 score *= weightConfig().getNewsMediaDecayFactor();
             }
@@ -501,17 +500,34 @@ public class CalculationSearchFactory implements Runnable {
         return scoreMap;
     }
 
-//    private Map<String, ScoreWithRank> getScoreMapWithInterestLabel(List<SearchResultTempBO> tempResult) {
-//        long interestLabelStart = System.currentTimeMillis();
-//        Set<Integer> interest = this.userInterestLabelScore.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
-//        for (SearchResultTempBO searchResult : tempResult) {
-//            for (int item = 0; item < searchResult.getLabels().size(); item++) {
-//
-//            }
-//        }
-//        this.searchLogInfo.append("------ interest label operator time : ").append(System.currentTimeMillis() - interestLabelStart).append("ms\n");
-//        return scoreMap;
-//    }
+    private Map<String, ScoreWithRank> getScoreMapWithInterestLabel(List<SearchResultTempBO> tempResult) {
+        long interestLabelStart = System.currentTimeMillis();
+        Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
+        if (!ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid())) {
+            Set<Integer> interest = this.userInterestLabelScore.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+            List<ResultSortByInterestLabelScore> sort = new LinkedList<>();
+            for (SearchResultTempBO searchResult : tempResult) {
+                float scoreSum = 0.0f;
+                for (int item = 0; item < searchResult.getLabels().size(); item++) {
+                    if (interest.contains(searchResult.getLabels().get(item))) {
+                        Float userScore = this.userInterestLabelScore.get(searchResult.getLabels().get(item));
+                        Double kolScore = searchResult.getScores().get(item);
+                        scoreSum += userScore * kolScore;
+                    }
+                }
+                sort.add(new ResultSortByInterestLabelScore(searchResult.getUid(), scoreSum));
+            }
+            Collections.sort(sort);
+            float upperLimit = weightConfig().getRelevanceLabelUpperLimit();
+            float decayFactor = (upperLimit - weightConfig().getRelevanceLabelLowerLimit()) / tempResult.size();
+            for (int item = 0; item < sort.size(); item++) {
+                scoreMap.put(sort.get(item).getUid(), new ScoreWithRank(upperLimit - decayFactor * (item + 1)
+                        , item + 1));
+            }
+        }
+        this.searchLogInfo.append("------ interest label operator time : ").append(System.currentTimeMillis() - interestLabelStart).append("ms\n");
+        return scoreMap;
+    }
 
     private class SearchResultTempBoWithSimilarityScore implements Comparable<SearchResultTempBoWithSimilarityScore> {
 
@@ -525,7 +541,6 @@ public class CalculationSearchFactory implements Runnable {
         }
 
         @Override
-        @SuppressWarnings("all")
         public int compareTo(SearchResultTempBoWithSimilarityScore o) {
             int sortBySimilarityScore = Double.compare(o.similarityScore, this.similarityScore);
             if (sortBySimilarityScore == 0) {
@@ -563,7 +578,6 @@ public class CalculationSearchFactory implements Runnable {
         }
 
         @Override
-        @SuppressWarnings("all")
         public int compareTo(ResultSortByInteractionAbility o) {
             int medianScoreCompare = Float.compare(o.medianScore, this.medianScore);
             if (medianScoreCompare != 0) {
@@ -595,9 +609,26 @@ public class CalculationSearchFactory implements Runnable {
         }
 
         @Override
-        @SuppressWarnings("all")
         public int compareTo(ResultSortByInteractionDifferenceValue o) {
             return this.difference.compareTo(o.difference);
+        }
+    }
+
+    private class ResultSortByInterestLabelScore implements Comparable<ResultSortByInterestLabelScore> {
+
+        @Getter
+        private String uid;
+        @Getter
+        private Float score;
+
+        ResultSortByInterestLabelScore(String uid, Float score) {
+            this.uid = uid;
+            this.score = score;
+        }
+
+        @Override
+        public int compareTo(ResultSortByInterestLabelScore o) {
+            return o.score.compareTo(o.score);
         }
     }
 
