@@ -1,19 +1,44 @@
 package com.cldev.search.cldevsearch.process.common;
 
+import ch.ethz.ssh2.SCPInputStream;
+import com.alibaba.fastjson.JSONObject;
+import com.cldev.search.cldevsearch.bo.BlogBO;
+import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
+import com.cldev.search.cldevsearch.util.SpringContextUtil;
+import org.database.neo4j.base.common.LinuxAction;
+import org.database.neo4j.base.common.ResultApi;
+import org.database.neo4j.base.util.LinuxUtil;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.TermsQueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.http.*;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.*;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -47,14 +72,83 @@ import java.util.*;
 @SpringBootTest
 public class RunnerTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(RunnerTest.class);
+
     @Autowired
     private RestTemplate restTemplate;
     @Autowired
     private ElasticsearchTemplate template;
+    @Autowired
+    private AsyncTaskUtil asyncTaskUtil;
 
     @Test
     public void collectMsg() {
         Object forObject = restTemplate.getForObject("http://192.168.2.205:9000/log/collectMsg", Object.class);
+    }
+
+    @Test
+    public void testUpdate() throws IOException {
+        Client client = template.getClient();
+        BulkRequestBuilder builder = template.getClient().prepareBulk();
+        XContentBuilder jsonBuilder = XContentFactory.jsonBuilder().startObject();
+        Map<String, String> doc = new HashMap<>(8);
+        doc.put("name", "快乐肥宅庆先森");
+        client.prepareUpdate("wb-user-1569427200000", "user", "2987585965").setDoc(doc).execute().actionGet();
+    }
+
+    private volatile AtomicInteger deleteCount = new AtomicInteger(0);
+    @Test
+    public void deleteMid() {
+        Client client = template.getClient();
+        LinuxAction linuxAction = LinuxUtil.getSingletonLinuxAction("192.168.2.76", "cldev", "cldev");
+        String mid;
+        int count = 0;
+        List<String> midList = new ArrayList<>();
+        try (SCPInputStream scpInputStream = linuxAction.downloadFileIS("/home/cldev/Documents/mid-result.json");
+             InputStreamReader inputStreamReader = new InputStreamReader(scpInputStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+            while ((mid = bufferedReader.readLine()) != null) {
+                midList.add(mid.split(",")[2].split(":")[1].split("\"")[1]);
+                count++;
+                if (count % 10000 == 0) {
+                    deleteMid(client, midList, count);
+                    midList = new ArrayList<>();
+                }
+            }
+            if (count % 10000 != 0) {
+                deleteMid(client, midList, count);
+            }
+        } catch (IOException ignored) {}
+    }
+
+
+    private void deleteMid(Client client, List<String> deleteMid, int count) {
+        asyncTaskUtil.asyncCustomTask(() -> {
+            long deleteStart = System.currentTimeMillis();
+            ActionFuture<SearchResponse> esUidInfo = client.search(new SearchRequest("wb-art").source(new SearchSourceBuilder()
+                    .query(new TermsQueryBuilder("_id", deleteMid)).size(deleteMid.size())));
+            List<String> collect = Arrays.stream(esUidInfo.actionGet().getHits().getHits()).map(SearchHit::getId).collect(Collectors.toList());
+            List<String> delete = deleteMid.stream().filter(item -> !collect.contains(item)).collect(Collectors.toList());
+            restTemplate.postForObject("http://192.168.2.76:9200/mid/_delete_by_query",
+                    getRequestBody(new JSONObject()
+                            .fluentPut("query", new JSONObject()
+                                    .fluentPut("terms", new JSONObject()
+                                            .fluentPut("_id", delete))).toJSONString()),
+                    JSONObject.class);
+            int addAndGet = deleteCount.addAndGet(delete.size());
+            System.out.println("statistics num:" + count + "    real num:" + delete.size() +
+                    "    delete total:" + addAndGet +
+                    "    rate:" + (((float)addAndGet / 118020163) * 100) + "%" +
+                    "    elapsed time:" + (System.currentTimeMillis() - deleteStart) + "ms");
+        });
+    }
+
+    private synchronized <T> HttpEntity<T> getRequestBody(T requestStr) {
+        HttpHeaders headers = new HttpHeaders();
+        MediaType type = MediaType.parseMediaType("application/json; charset=UTF-8");
+        headers.setContentType(type);
+        headers.add("Accept", MediaType.APPLICATION_JSON.toString());
+        return new HttpEntity<>(requestStr, headers);
     }
 
     @Test

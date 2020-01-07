@@ -1,6 +1,7 @@
 package com.cldev.search.cldevsearch.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.cldev.search.cldevsearch.bo.BlogBO;
 import com.cldev.search.cldevsearch.dto.BlogDataDTO;
 import com.cldev.search.cldevsearch.dto.UserInfoDTO;
 import com.cldev.search.cldevsearch.dto.UserLabelDTO;
@@ -9,6 +10,8 @@ import com.cldev.search.cldevsearch.service.EsToolsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.List;
 
 /**

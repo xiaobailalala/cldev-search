@@ -12,12 +12,25 @@ import com.cldev.search.cldevsearch.service.EsToolsService;
 import com.cldev.search.cldevsearch.ssdb.SSDB;
 import com.cldev.search.cldevsearch.util.AsyncTaskUtil;
 import com.cldev.search.cldevsearch.util.CommonUtil;
+import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.TermsQueryBuilder;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryAction;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.http.HttpEntity;
@@ -36,6 +49,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -409,6 +423,7 @@ public class EsToolsServiceImpl implements EsToolsService {
             }
         }
         int count = 0;
+        BulkResponse responses = builder.get();
         while (builder.get().hasFailures()) {
             System.out.println("update reports error" + count++);
         }
@@ -508,19 +523,65 @@ public class EsToolsServiceImpl implements EsToolsService {
 
     @Override
     public JSONObject dayTaskDeleteRemoveUser(List<String> uidList) {
-        JSONObject response = new JSONObject();
-        response.put("artIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-art/_delete_by_query",
-                getRequestBody(new JSONObject()
-                        .fluentPut("query", new JSONObject()
-                                .fluentPut("terms", new JSONObject()
-                                        .fluentPut("uid", uidList.toArray(new String[0])))).toJSONString()),
-                JSONObject.class));
-        response.put("userIndices", restTemplate.postForObject("http://192.168.2.76:9200/wb-user/_delete_by_query",
-                getRequestBody(new JSONObject()
-                        .fluentPut("query", new JSONObject()
-                                .fluentPut("terms", new JSONObject()
-                                        .fluentPut("_id", uidList.toArray(new String[0])))).toJSONString()),
-                JSONObject.class));
+        Client client = esTemplate.getClient();
+//        for (String uid : uidList) {
+//            ActionFuture<SearchResponse> esUidInfo = client.search(new SearchRequest("wb-art").source(new SearchSourceBuilder()
+//                    .query(new TermsQueryBuilder("uid", uid)).size(1000)));
+//            SearchHit[] hits = esUidInfo.actionGet().getHits().getHits();
+//            System.out.println(uid + " " + hits.length);
+//        }
+
+        printFile("remove-user", new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+        for (String uid : uidList) {
+            printFile("remove-user", "delete user id : " + uid);
+            Set<String> deleteMidList = new HashSet<>();
+            printFile("remove-user", "start delete user blog");
+            int count = 0;
+            while (true) {
+                ActionFuture<SearchResponse> esUidInfo = client.search(new SearchRequest("wb-art").source(new SearchSourceBuilder()
+                        .query(new TermQueryBuilder("uid", uid)).size(1000)));
+                SearchHit[] hits = esUidInfo.actionGet().getHits().getHits();
+                if (hits.length == 0) {
+                    break;
+                }
+                List<String> deleteMid = Arrays.stream(hits).map(SearchHit::getId).collect(Collectors.toList());
+                DeleteByQueryAction.INSTANCE.newRequestBuilder(client)
+                        .filter(QueryBuilders.termsQuery("_id", deleteMid))
+                        .source("wb-art")
+                        .get();
+//                restTemplate.postForObject("http://192.168.2.76:9200/wb-art/_delete_by_query",
+//                        getRequestBody(new JSONObject()
+//                                .fluentPut("query", new JSONObject()
+//                                        .fluentPut("terms", new JSONObject()
+//                                                .fluentPut("_id", deleteMid))).toJSONString()),
+//                        JSONObject.class);
+                deleteMidList.addAll(deleteMid);
+                count = deleteMidList.size();
+            }
+            printFile("remove-user", "delete user blog end, total : " + count + "\nstart delete mid");
+            DeleteByQueryAction.INSTANCE.newRequestBuilder(client)
+                    .filter(QueryBuilders.termsQuery("_id", deleteMidList))
+                    .source("mid")
+                    .get();
+//            restTemplate.postForObject("http://192.168.2.76:9200/mid/_delete_by_query",
+//                    getRequestBody(new JSONObject()
+//                            .fluentPut("query", new JSONObject()
+//                                    .fluentPut("terms", new JSONObject()
+//                                            .fluentPut("_id", deleteMidList))).toJSONString()),
+//                    JSONObject.class);
+            printFile("remove-user", "start delete user");
+            DeleteByQueryAction.INSTANCE.newRequestBuilder(client)
+                    .filter(QueryBuilders.termQuery("_id", uid))
+                    .source("wb-user")
+                    .get();
+//            restTemplate.postForObject("http://192.168.2.76:9200/wb-user/_delete_by_query",
+//                    getRequestBody(new JSONObject()
+//                            .fluentPut("query", new JSONObject()
+//                                    .fluentPut("term", new JSONObject()
+//                                            .fluentPut("_id", uid))).toJSONString()),
+//                    JSONObject.class);
+        }
+        printFile("remove-user", "start merge");
         asyncTaskUtil.asyncCustomTask(() -> {
             List indicesList = restTemplate.getForObject("http://192.168.2.76:9200/_cat/indices/?h=index,docs.count&format=json", List.class);
             assert indicesList != null;
@@ -540,7 +601,7 @@ public class EsToolsServiceImpl implements EsToolsService {
                     null,
                     Object.class);
         });
-        return response;
+        return new JSONObject();
     }
 
     private synchronized <T> HttpEntity<T> getRequestBody(T requestStr) {
@@ -557,9 +618,11 @@ public class EsToolsServiceImpl implements EsToolsService {
         List<Indices> indices = new LinkedList<>();
         for (Object item : indicesList) {
             String index = ((LinkedHashMap) item).get("index").toString();
-            Integer docsCount = Integer.parseInt(((LinkedHashMap) item).get("docs.count").toString());
-            if (index.startsWith("wb-art")) {
-                indices.add(new Indices(index, docsCount));
+            if (!ObjectUtils.isEmpty(((LinkedHashMap) item).get("docs.count"))) {
+                Integer docsCount = Integer.parseInt(((LinkedHashMap) item).get("docs.count").toString());
+                if (index.startsWith("wb-art")) {
+                    indices.add(new Indices(index, docsCount));
+                }
             }
         }
         Collections.sort(indices);
@@ -763,6 +826,28 @@ public class EsToolsServiceImpl implements EsToolsService {
         @SuppressWarnings("all")
         public int compareTo(Indices o) {
             return o.indices.compareTo(this.indices);
+        }
+    }
+
+    private void printFile(String fileName, String msg) {
+        File file = new File("log\\" + fileName);
+        FileOutputStream fileOutputStream = null;
+        try {
+            fileOutputStream = new FileOutputStream(file, true);
+            byte[] contentInBytes = (msg + "\r\n").getBytes();
+            fileOutputStream.write(contentInBytes);
+            fileOutputStream.flush();
+            fileOutputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (fileOutputStream != null) {
+                    fileOutputStream.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

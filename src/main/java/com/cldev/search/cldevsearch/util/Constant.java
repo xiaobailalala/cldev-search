@@ -1,11 +1,5 @@
 package com.cldev.search.cldevsearch.util;
 
-import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.stereotype.Component;
-
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
  * <p>
@@ -30,22 +24,25 @@ import org.springframework.stereotype.Component;
  * 　　　┗┻┛　┗┻┛
  *
  * @author zpx
- * Build File @date: 2019/9/24 16:28
+ * Build File @date: 2019/12/6 11:13
  * @version 1.0
  * @description
  */
-@Component("cldev-search-springContextUtil")
-public class SpringContextUtil implements ApplicationContextAware {
-
-    private static ApplicationContext context;
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        context = applicationContext;
-    }
-
-    public static ApplicationContext getContext() {
-        return context;
-    }
-
+public class Constant {
+    /**
+     * 任务调度参数key
+     */
+    public static final String JOB_PARAM_KEY = "JOB_PARAM_KEY";
+    /**
+     * 定时任务状态
+     *
+     */
+    /**
+     * 正常
+     */
+    public static final int NORMAL = 0;
+    /**
+     * 暂停
+     */
+    public static final int PAUSE =1;
 }
