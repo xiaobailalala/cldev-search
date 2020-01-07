@@ -53,7 +53,7 @@ public class ParticipleTest {
     }
 
     private void resolverParticipleWithoutLabel(MultiValueMap<String, String> labelMapping) {
-        File folder = new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总\\ToTampopo");
+        File folder = new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总/ToTampopo");
         Set<String> participle = generatorNormalParticiple();
         int count = 0;
         for (String item : participle) {
@@ -85,7 +85,7 @@ public class ParticipleTest {
     }
 
     private void resolverParticipleWithLabel(MultiValueMap<String, String> labelMapping) {
-        File folder = new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总\\第一轮词库分类");
+        File folder = new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总/第一轮词库分类");
         Set<String> participle = generatorNormalParticiple();
         Map<String, String> mapping = generatorLabelMapping();
         for (String item : participle) {
@@ -107,8 +107,8 @@ public class ParticipleTest {
 
     private Map<String, String> generatorLabelMapping() {
         Map<String, String> labelMapping = new HashMap<>(64);
-        File brandWeiboMapping = new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总\\brand_weibo_mapping.json");
-        File productWeiboMapping = new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总\\product_weibo_mapping.json");
+        File brandWeiboMapping = new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总/brand_weibo_mapping.json");
+        File productWeiboMapping = new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总/product_weibo_mapping.json");
         try (BufferedReader brandReader = new BufferedReader(new InputStreamReader(new FileInputStream(brandWeiboMapping), StandardCharsets.UTF_8));
              BufferedReader productReader = new BufferedReader(new InputStreamReader(new FileInputStream(productWeiboMapping), StandardCharsets.UTF_8))) {
             StringBuilder brandJsonStr = new StringBuilder(), productJsonStr = new StringBuilder();
@@ -132,7 +132,7 @@ public class ParticipleTest {
     }
 
     private Set<String> generatorNormalParticiple() {
-        File folder = new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总");
+        File folder = new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总");
         Set<String> normalParticiple = new HashSet<>();
         for (File file : Objects.requireNonNull(folder.listFiles())) {
             if (file.getName().endsWith(".txt")) {
@@ -171,8 +171,13 @@ public class ParticipleTest {
     }
 
     @Test
+    public void commonTest() {
+        System.out.println(generatorNormalParticiple().size());
+    }
+
+    @Test
     public void charsetTest() {
-        try (BufferedReader participleFile = new BufferedReader(new InputStreamReader(new FileInputStream(new File("C:\\Users\\cl24\\Downloads\\中文分词词库汇总\\中国传统节日大全.txt")), StandardCharsets.UTF_8))) {
+        try (BufferedReader participleFile = new BufferedReader(new InputStreamReader(new FileInputStream(new File("/Users/zhaopeixian/Office/shareFolder/中文分词词库汇总/中国传统节日大全.txt")), StandardCharsets.UTF_8))) {
             String msg;
             while ((msg = participleFile.readLine()) != null && !StringUtils.isEmpty(msg)) {
 //                if (isMessyCode(msg)) {
