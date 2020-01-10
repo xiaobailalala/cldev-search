@@ -1,15 +1,16 @@
 package com.cldev.search.cldevsearch.correlation.process;
 
 import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
+import com.cldev.search.cldevsearch.bo.SearchResultTempBoWithSimilarityScore;
 import com.cldev.search.cldevsearch.correlation.BlogCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.UserCalculationSearch;
 import com.cldev.search.cldevsearch.correlation.extension.UserCalculationSearchName;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 import com.cldev.search.cldevsearch.entity.UserInterestLabel;
 import com.cldev.search.cldevsearch.mapper.UserInterestLabelMapper;
-import com.cldev.search.cldevsearch.util.*;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.hankcs.hanlp.HanLP;
+import com.cldev.search.cldevsearch.util.BeanUtil;
+import com.cldev.search.cldevsearch.util.CommonUtil;
+import com.cldev.search.cldevsearch.util.CyclicBarrierUtil;
 import lombok.Getter;
 import org.elasticsearch.client.Client;
 import org.slf4j.Logger;
@@ -18,8 +19,8 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
-import java.util.concurrent.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.cldev.search.cldevsearch.util.BeanUtil.searchRegistryConfig;
 import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
@@ -52,35 +53,65 @@ import static com.cldev.search.cldevsearch.util.BeanUtil.weightConfig;
  * @version 1.0
  * @description
  */
-@SuppressWarnings("all")
 public class CalculationSearchFactory implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(CalculationSearchFactory.class);
 
-    private ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("thread-call-runner-%d").build();
+    /**
+     * 初始化线程栅栏工具类，创建线程栅栏
+     */
+    private CyclicBarrierUtil cyclicBarrier = CyclicBarrierUtil.buildBarrier(this,
+            "thread-call-runner-%d", 10, 10, 0L);
 
-    private ExecutorService executorService = new ThreadPoolExecutor(10, 10, 0L,
-            TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), namedThreadFactory);
-
-    private CyclicBarrier cyclicBarrier;
-
+    /**
+     * 声明搜索条件
+     */
     private SearchConditionDTO condition;
 
+    /**
+     * 声明es transport客户端
+     */
     private Client client;
 
+    /**
+     * 初始化用于存储用户信息搜索通道得到的用户结果列表集合，该集合支持并发
+     */
     private ConcurrentLinkedQueue<SearchResultTempBO> userIndicesResult = new ConcurrentLinkedQueue<>();
 
+    /**
+     * 初始化用于存储博文搜索通道得到的用户结果列表集合，该集合支持并发
+     */
     private ConcurrentLinkedQueue<SearchResultTempBO> blogIndicesResult = new ConcurrentLinkedQueue<>();
 
+    /**
+     * 初始化用于存储用户名搜索通道得到的用户结果列表集合，该集合支持并发
+     */
     private ConcurrentLinkedQueue<SearchResultTempBO> userNameIndicesResult = new ConcurrentLinkedQueue<>();
 
+    /**
+     * 初始化最终用户列表结果集合
+     */
     private List<SearchResultTempBO> resultUid = new LinkedList<>();
 
+    /**
+     * 初始化用户兴趣领域标签及其分数映射字典，该字典支持并发
+     */
     private ConcurrentHashMap<Integer, Float> userInterestLabelScore = new ConcurrentHashMap<>(128);
 
+    /**
+     * 初始化日志存储容器，在一次请求的线程中，为避免日志串扰，故该容器支持并发
+     */
     private StringBuffer searchLogInfo = new StringBuffer("The search process info : \n");
 
+    /**
+     * 初始化全局操作计时器的起始时间
+     */
     private long searchTimeStart = System.currentTimeMillis();
+
+    /**
+     * 声明用于判断用户是否登录的标记
+     */
+    private boolean isUserLogged;
 
     private CalculationSearchFactory() {
     }
@@ -92,48 +123,42 @@ public class CalculationSearchFactory implements Runnable {
     public CalculationSearchFactory calculationBuilder(SearchConditionDTO condition, Client client) {
         this.condition = condition;
         this.client = client;
+        this.isUserLogged = !ObjectUtils.isEmpty(this.condition.getUid()) &&
+                !StringUtils.isEmpty(this.condition.getUid());
+        // 判断搜索内容是否为空
+        boolean isContext = StringUtils.isEmpty(condition.getContext());
+        this.cyclicBarrier.createBarrier(isContext ? (this.isUserLogged ? 3 : 2) : (this.isUserLogged ? 5 : 4));
         return this;
-    }
-
-    /**
-     * 异步线程进行多线程搜索
-     *
-     * @param callBack 回调接口-异步任务主体
-     */
-    private void kolCalculationResultProcess(CommonCallBack callBack) {
-        this.executorService.execute(() -> {
-            try {
-                callBack.run();
-                cyclicBarrier.await();
-            } catch (InterruptedException | BrokenBarrierException e) {
-                e.printStackTrace();
-            }
-        });
     }
 
     /**
      * 开始执行搜索
      */
     public void searchStart() {
-        searchLogInfo.append("-------------------- search start, the search context is : ").append(this.condition.getContext()).append(" --------------------\n")
-                .append("-------------------- the search condition is : sex-").append(this.condition.getSex()).append(" address-")
-                .append(Arrays.toString(this.condition.getAddress())).append(" interest-").append(this.condition.getInterest())
-                .append(" fansNum-").append(this.condition.getFansNum()).append(" --------------------\n");
-        boolean isUserLogged = !ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid());
+        searchLogInfo.append("-------------------- search start, the search context is : ")
+                .append(this.condition.getContext()).append(" --------------------\n")
+                .append("-------------------- the search condition is : sex-")
+                .append(this.condition.getSex()).append(" address-")
+                .append(Arrays.toString(this.condition.getAddress())).append(" interest-")
+                .append(this.condition.getInterest()).append(" fansNum-").append(this.condition.getFansNum())
+                .append(" --------------------\n");
+        // 若用户有登录，则获取用户兴趣领域标签及其分数
+        this.userInterestLabelScoreProcess();
         if (StringUtils.isEmpty(condition.getContext())) {
-            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 3 : 2, this);
-            this.userInterestLabelScoreProcess(isUserLogged);
-            this.kolCalculationResultProcess(() -> this.userIndicesResult.addAll(new UserCalculationSearch(this.condition).initSearchCondition().getResult(this.client)));
+            // 若搜索条件为空，则只进行基于用户信息的搜索
+            this.cyclicBarrier.barrierOperationThreadRun(() -> {
+                KolCalculation kolCalculation = new UserCalculationSearch(this.condition);
+                this.userIndicesResult.addAll(kolCalculation.initSearchCondition().getResult(this.client));
+            });
         } else {
-            this.cyclicBarrier = new CyclicBarrier(isUserLogged ? 5 : 4, this);
-            this.userInterestLabelScoreProcess(isUserLogged);
             // 用户名检索线程
-            this.kolCalculationResultProcess(() -> {
+            this.cyclicBarrier.barrierOperationThreadRun(() -> {
                 try {
                     long start = System.currentTimeMillis();
-                    UserCalculationSearchName userCalculationSearchName = new UserCalculationSearchName(this.condition);
-                    this.userNameIndicesResult.addAll(userCalculationSearchName.initSearchCondition().getResult(this.client));
-                    searchLogInfo.append(userCalculationSearchName.getSearchLogInfo()).append("search name total: ").append(System.currentTimeMillis() - start).append("ms\n");
+                    KolCalculation kolCalculation = new UserCalculationSearchName(this.condition);
+                    this.userNameIndicesResult.addAll(kolCalculation.initSearchCondition().getResult(this.client));
+                    searchLogInfo.append(kolCalculation.getSearchLogInfo()).append("search name total: ")
+                            .append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.userNameIndicesResult.addAll(new ArrayList<>());
                     e.printStackTrace();
@@ -141,12 +166,13 @@ public class CalculationSearchFactory implements Runnable {
                 }
             });
             // 用户信息检索线程
-            this.kolCalculationResultProcess(() -> {
+            this.cyclicBarrier.barrierOperationThreadRun(() -> {
                 try {
                     long start = System.currentTimeMillis();
-                    UserCalculationSearch userCalculationSearch = new UserCalculationSearch(this.condition);
-                    this.userIndicesResult.addAll(userCalculationSearch.initSearchCondition().getResult(this.client));
-                    searchLogInfo.append(userCalculationSearch.getSearchLogInfo()).append("search user total: ").append(System.currentTimeMillis() - start).append("ms\n");
+                    KolCalculation kolCalculation = new UserCalculationSearch(this.condition);
+                    this.userIndicesResult.addAll(kolCalculation.initSearchCondition().getResult(this.client));
+                    searchLogInfo.append(kolCalculation.getSearchLogInfo()).append("search user total: ")
+                            .append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.userIndicesResult.addAll(new ArrayList<>());
                     e.printStackTrace();
@@ -154,12 +180,13 @@ public class CalculationSearchFactory implements Runnable {
                 }
             });
             // 博文文档检索线程
-            this.kolCalculationResultProcess(() -> {
+            this.cyclicBarrier.barrierOperationThreadRun(() -> {
                 try {
                     long start = System.currentTimeMillis();
-                    BlogCalculationSearch blogCalculationSearch = new BlogCalculationSearch(this.condition);
-                    this.blogIndicesResult.addAll(blogCalculationSearch.initSearchCondition().getResult(this.client));
-                    searchLogInfo.append(blogCalculationSearch.getSearchLogInfo()).append("search blog total: ").append(System.currentTimeMillis() - start).append("ms\n");
+                    KolCalculation kolCalculation = new BlogCalculationSearch(this.condition);
+                    this.blogIndicesResult.addAll(kolCalculation.initSearchCondition().getResult(this.client));
+                    searchLogInfo.append(kolCalculation.getSearchLogInfo()).append("search blog total: ")
+                            .append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     this.blogIndicesResult.addAll(new ArrayList<>());
                     e.printStackTrace();
@@ -172,9 +199,9 @@ public class CalculationSearchFactory implements Runnable {
     /**
      * 若用户处于登录状态，获取用户的兴趣标签信息及分数
      */
-    private void userInterestLabelScoreProcess(boolean isLogged) {
-        if (isLogged) {
-            this.kolCalculationResultProcess(() -> {
+    private void userInterestLabelScoreProcess() {
+        if (this.isUserLogged) {
+            this.cyclicBarrier.barrierOperationThreadRun(() -> {
                 try {
                     long start = System.currentTimeMillis();
                     UserInterestLabelMapper mapper = BeanUtil.userInterestLabelMapper();
@@ -182,7 +209,8 @@ public class CalculationSearchFactory implements Runnable {
                             .select(new UserInterestLabel().setUid(this.condition.getUid()))) {
                         userInterestLabelScore.put(searchRegistryConfig().getInterestOne(item.getLabel()), item.getRes());
                     }
-                    searchLogInfo.append("search user interest label : ").append(System.currentTimeMillis() - start).append("ms\n");
+                    this.searchLogInfo.append("search user interest label : ")
+                            .append(System.currentTimeMillis() - start).append("ms\n");
                 } catch (Exception e) {
                     e.printStackTrace();
                     logger.error("----------------- user interest label search error -----------------");
@@ -205,35 +233,9 @@ public class CalculationSearchFactory implements Runnable {
      *
      * @return 线程屏障对象
      */
-    public CyclicBarrier getCyclicBarrier() {
+    public CyclicBarrierUtil getCyclicBarrier() {
         return cyclicBarrier;
     }
-
-    /**
-     * 搜索内容是否含有过滤条件
-     *
-     * @return 是否含有过滤条件，true为含有，false为不含
-     */
-    private boolean isCondition() {
-        int isCondition = 0;
-        if (!ObjectUtils.isEmpty(condition.getSex()) && condition.getSex() != 0) {
-            isCondition++;
-        }
-        if (!ObjectUtils.isEmpty(condition.getAddress()) && condition.getAddress().length != 0) {
-            isCondition++;
-        }
-        if (!ObjectUtils.isEmpty(condition.getFansAge()) && condition.getFansAge().size() != 0) {
-            isCondition++;
-        }
-        if (!ObjectUtils.isEmpty(condition.getInterest()) && condition.getInterest().size() != 0) {
-            isCondition++;
-        }
-        if (!ObjectUtils.isEmpty(condition.getFansNum()) && condition.getFansNum().size() != 0) {
-            isCondition++;
-        }
-        return isCondition != 0;
-    }
-
 
     @Override
     @SuppressWarnings("all")
@@ -242,43 +244,29 @@ public class CalculationSearchFactory implements Runnable {
         if (StringUtils.isEmpty(condition.getContext())) {
             this.resultUid.addAll(new ArrayList<>());
         } else {
+            // 将三个线程中的结果集合进行转换为List集合，便于后续的操作
             List<SearchResultTempBO> userNameResult = new LinkedList<>(this.userNameIndicesResult);
             List<SearchResultTempBO> userResult = new LinkedList<>(this.userIndicesResult);
             List<SearchResultTempBO> blogResult = new LinkedList<>(this.blogIndicesResult);
+            // 存储用户名线程中得到的结果集，主要用于用户名过滤后的操作
             Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap = new HashMap<>(500);
-            similarityExclusion(userNameResultMap, userNameResult);
-            Map<String, SearchResultTempBO> userResultMap = new HashMap<>(1000);
-            for (SearchResultTempBO user : userResult) {
-                userResultMap.put(user.getUid(), user);
-            }
-            List<SearchResultTempBO> blogResultFilter = filterSearchResult(blogResult);
-            for (SearchResultTempBO blog : blogResultFilter) {
-                SearchResultTempBoWithSimilarityScore userName = userNameResultMap.get(blog.getUid());
-                SearchResultTempBO user = userResultMap.get(blog.getUid());
-                if (!ObjectUtils.isEmpty(userName)) {
-                    SearchResultTempBO tempUserName = userName.getSearchResultTempBo();
-                    tempUserName.setCorrelationScore(blog.getCorrelationScore() * weightConfig().getBlogScoreWeight() +
-                            tempUserName.getCorrelationScore() * weightConfig().getUserScoreWeight());
-                }
-                if (!ObjectUtils.isEmpty(user)) {
-                    blog.setCorrelationScore(blog.getCorrelationScore() * weightConfig().getBlogScoreWeight() +
-                            user.getCorrelationScore() * weightConfig().getUserScoreWeight());
-                }
-            }
-            List<SearchResultTempBoWithSimilarityScore> resultUserName = new LinkedList<>();
-            for (Map.Entry<String, SearchResultTempBoWithSimilarityScore> stringSearchResultTempBoEntry : userNameResultMap.entrySet()) {
-                resultUserName.add(stringSearchResultTempBoEntry.getValue());
-            }
-            Collections.sort(resultUserName);
-            long filterTime = System.currentTimeMillis();
-            List<SearchResultTempBO> resultTemp = resultUserName.stream()
-                    .map(SearchResultTempBoWithSimilarityScore::getSearchResultTempBo).collect(Collectors.toList());
-            Set<String> nameUidSet = resultTemp.stream().map(SearchResultTempBO::getUid).collect(Collectors.toSet());
-            for (int item = 0; item < blogResultFilter.size(); item++) {
-                if (nameUidSet.contains(blogResultFilter.get(item).getUid())) {
-                    blogResultFilter.remove(item);
-                }
-            }
+            // 根据搜索词与用户名相似度匹配过滤
+            this.searchLogInfo.append(ResultFilterFactory.buildFilter().nameSimilarityFilter(
+                    userNameResultMap, userNameResult, condition.getContext()).getLogInfo());
+            // 根据用户信息过滤（如果搜索时需要进行条件过滤时）
+            ResultFilterFactory userInfoFilter = ResultFilterFactory.buildFilter().userInfoFilter(condition, blogResult);
+            List<SearchResultTempBO> blogResultFilter = (List<SearchResultTempBO>) userInfoFilter.getResult();
+            this.searchLogInfo.append(userInfoFilter.getLogInfo());
+            // 根据用户结果分数和博文结果分数重合的部分按照一定权重进行合并
+            this.searchLogInfo.append(ResultFilterFactory.buildFilter()
+                    .userBlogMergeFilter(blogResultFilter, userNameResultMap, userResult).getLogInfo());
+            // 去除博文结果集中和用户结果集中重复的部分
+            ResultFilterFactory removeRepeatFilter = ResultFilterFactory.buildFilter().removeRepeatUserBlogFilter(
+                    userNameResultMap, blogResultFilter);
+            List<SearchResultTempBO> resultTemp = (List<SearchResultTempBO>) removeRepeatFilter.getResult();
+            this.searchLogInfo.append(removeRepeatFilter.getLogInfo());
+
+
             influenceScoreWeighting(blogResultFilter);
             long sortTimeStart = System.currentTimeMillis();
             relevanceOptimizationRanking(blogResultFilter);
@@ -286,129 +274,26 @@ public class CalculationSearchFactory implements Runnable {
             Collections.sort(blogResultFilter);
             resultTemp.addAll(blogResultFilter);
             this.resultUid.addAll(resultTemp);
-            this.searchLogInfo.append("filter and add influence time : ").append(System.currentTimeMillis() - filterTime).append("ms\n");
+//            this.searchLogInfo.append("filter and add influence time : ").append(System.currentTimeMillis() - filterTime).append("ms\n");
         }
         this.searchLogInfo.append("result operator total : ").append(System.currentTimeMillis() - start).append("ms\n")
                 .append("-------------------- The total time of this search is ").append(System.currentTimeMillis() - this.searchTimeStart).append("ms --------------------");
         logger.info(this.searchLogInfo.toString());
     }
 
-    private void similarityExclusion(Map<String, SearchResultTempBoWithSimilarityScore> userNameResultMap, List<SearchResultTempBO> userNameResult) {
-        /* 根据用户名进行字符串相似度排除 */
-        long similarityStart = System.currentTimeMillis();
-        List<String> screenName = searchRegistryConfig().getScreenName(condition.getContext());
-        if (screenName.size() == 0) {
-            screenName.add(condition.getContext());
-        }
-        item:
-        for (SearchResultTempBO userName : userNameResult) {
-            for (String name : screenName) {
-                /* 优先根据原文中字比对 */
-                double compareInChinese = SimilarityUtil.sim(userName.getName().toLowerCase(), name.toLowerCase());
-                if (compareInChinese >= weightConfig().getUsernameSimilarityChinese()) {
-                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInChinese));
-                    continue item;
-                }
-                /* 去除原文和结果中的特殊字符后进行比对 */
-                if (name.toLowerCase().replaceAll(weightConfig().getNameRegex(), "")
-                        .equals(userName.getName().toLowerCase().replaceAll(weightConfig().getNameRegex(), ""))) {
-                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, 1));
-                    continue item;
-                }
-                /* 根据繁-简转化后的中字比对 */
-                double compareInTraditional = SimilarityUtil.sim(HanLP.convertToSimplifiedChinese(userName.getName()).toLowerCase(),
-                        HanLP.convertToSimplifiedChinese(name).toLowerCase());
-                if (compareInTraditional >= weightConfig().getUsernameSimilarityTraditional()) {
-                    userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInTraditional));
-                    continue item;
-                }
-                /* 根据中-拼音转换后的拼音全拼比对 */
-//            double compareInPinyin  = SimilarityUtil.sim(ChinesePinyinUtil.toHanyuPinyin(userName.getName()),
-//                    ChinesePinyinUtil.toHanyuPinyin(condition.getContext()));
-//            if (compareInPinyin >= weightConfig().getUsernameSimilarityPinyin() &&
-//                    compareInChinese >= weightConfig().getPinyinChildWithChinese() &&
-//                    compareInTraditional >= weightConfig().getPinyinChildWithTraditional()) {
-//                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
-//            }
-                /* 根据中-拼音转换后的拼音首字母比对 */
-             /*else if (SimilarityUtil.sim(ChinesePinyinUtil.getFirstLettersLo(userName.getName()),
-                    ChinesePinyinUtil.getFirstLettersLo(condition.getContext())) >= weightConfig().getUsernameSimilarityPinyinHead()) {
-                userNameResultMap.put(userName.getUid(), new SearchResultTempBoWithSimilarityScore(userName, compareInPinyin));
-            }*/
-            }
-        }
-        this.searchLogInfo.append("similarity time : ").append(System.currentTimeMillis() - similarityStart).append("ms\n");
-    }
-
-    private void influenceScoreWeighting(List<SearchResultTempBO> searchResultTempBOS) {
-        Float[] influenceResult = CommonUtil.scoreNormalization(searchResultTempBOS.stream().map(SearchResultTempBO::getScore).toArray(Float[]::new));
-        Float[] correlationResult = CommonUtil.scoreNormalization(searchResultTempBOS.stream().map(SearchResultTempBO::getCorrelationScore).toArray(Float[]::new));
+    private void influenceScoreWeighting(List<SearchResultTempBO> searchResultTemp) {
+        Float[] influenceResult = CommonUtil.scoreNormalization(searchResultTemp.stream().map(SearchResultTempBO::getScore).toArray(Float[]::new));
+        Float[] correlationResult = CommonUtil.scoreNormalization(searchResultTemp.stream().map(SearchResultTempBO::getCorrelationScore).toArray(Float[]::new));
         if (weightConfig().isInfluenceWithWeight()) {
-            for (int item = 0; item < searchResultTempBOS.size(); item++) {
-                searchResultTempBOS.get(item).setCorrelationScore(correlationResult[item] * weightConfig().getBlogCorrelationScoreWeight() +
+            for (int item = 0; item < searchResultTemp.size(); item++) {
+                searchResultTemp.get(item).setCorrelationScore(correlationResult[item] * weightConfig().getBlogCorrelationScoreWeight() +
                         influenceResult[item] * weightConfig().getBlogInfluenceScoreWeight());
             }
         } else {
-            for (int item = 0; item < searchResultTempBOS.size(); item++) {
-                searchResultTempBOS.get(item).setCorrelationScore(correlationResult[item] * influenceResult[item]);
+            for (int item = 0; item < searchResultTemp.size(); item++) {
+                searchResultTemp.get(item).setCorrelationScore(correlationResult[item] * influenceResult[item]);
             }
         }
-    }
-
-    private List<SearchResultTempBO> filterSearchResult(List<SearchResultTempBO> resultTemp) {
-        List<SearchResultTempBO> searchResult = new LinkedList<>();
-        if (isCondition()) {
-            for (SearchResultTempBO item : resultTemp) {
-                if (resolverAddress(item.getAddress(), item.getProvince()) &&
-                        resolverSex(item.getSex()) &&
-                        resolverFansNum(item.getWbFans()) &&
-                        resolverInterest(item.getShowLabels())) {
-                    searchResult.add(item);
-                }
-            }
-        } else {
-            searchResult.addAll(resultTemp);
-        }
-        return searchResult;
-    }
-
-    private boolean resolverAddress(String address, String province) {
-        if (ObjectUtils.isEmpty(this.condition.getAddress()) || this.condition.getAddress().length == 0) {
-            return true;
-        }
-        return Arrays.asList(this.condition.getAddress()).contains(address) || Arrays.asList(this.condition.getAddress()).contains(province);
-    }
-
-    private boolean resolverSex(Integer sex) {
-        if (ObjectUtils.isEmpty(this.condition.getSex()) || this.condition.getSex() == 0) {
-            return true;
-        }
-        return this.condition.getSex().equals(sex);
-    }
-
-    private boolean resolverFansNum(Integer fans) {
-        if (this.condition.getFansNum().size() == 0) {
-            return true;
-        }
-        for (SearchConditionDTO.FansNum fansNum : this.condition.getFansNum()) {
-            if (fans > fansNum.from && fans <= fansNum.to) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean resolverInterest(List<Integer> interest) {
-        if (this.condition.getInterest().size() == 0) {
-            return true;
-        }
-        Set<Integer> tempSet = new HashSet<>(interest);
-        for (Integer item : this.condition.getInterest()) {
-            if (tempSet.contains(item)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void relevanceOptimizationRanking(List<SearchResultTempBO> blogResultFilter) {
@@ -504,7 +389,7 @@ public class CalculationSearchFactory implements Runnable {
         long interestLabelStart = System.currentTimeMillis();
         Map<String, ScoreWithRank> scoreMap = new HashMap<>(9216);
         if (!ObjectUtils.isEmpty(this.condition.getUid()) && !StringUtils.isEmpty(this.condition.getUid())) {
-            Set<Integer> interest = this.userInterestLabelScore.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+            Set<Integer> interest = new HashSet<>(this.userInterestLabelScore.keySet());
             List<ResultSortByInterestLabelScore> sort = new LinkedList<>();
             for (SearchResultTempBO searchResult : tempResult) {
                 float scoreSum = 0.0f;
@@ -527,27 +412,6 @@ public class CalculationSearchFactory implements Runnable {
         }
         this.searchLogInfo.append("------ interest label operator time : ").append(System.currentTimeMillis() - interestLabelStart).append("ms\n");
         return scoreMap;
-    }
-
-    private class SearchResultTempBoWithSimilarityScore implements Comparable<SearchResultTempBoWithSimilarityScore> {
-
-        @Getter
-        private SearchResultTempBO searchResultTempBo;
-        private double similarityScore;
-
-        SearchResultTempBoWithSimilarityScore(SearchResultTempBO searchResultTempBo, double similarityScore) {
-            this.searchResultTempBo = searchResultTempBo;
-            this.similarityScore = similarityScore;
-        }
-
-        @Override
-        public int compareTo(SearchResultTempBoWithSimilarityScore o) {
-            int sortBySimilarityScore = Double.compare(o.similarityScore, this.similarityScore);
-            if (sortBySimilarityScore == 0) {
-                return o.searchResultTempBo.getCorrelationScore().compareTo(this.searchResultTempBo.getCorrelationScore());
-            }
-            return sortBySimilarityScore;
-        }
     }
 
     private class ResultSortByInteractionAbility implements Comparable<ResultSortByInteractionAbility> {
@@ -586,10 +450,10 @@ public class CalculationSearchFactory implements Runnable {
             if (this.blogTotal == 0) {
                 return -1;
             }
-            Float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
+            float thisSumScore = this.attitudeSum * weightConfig().getAttitudeWeight() / this.blogTotal +
                     this.commentSum * weightConfig().getCommentWeight() / this.blogTotal +
                     this.repostSum * weightConfig().getRepostWeight() / this.blogTotal;
-            Float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / o.blogTotal +
+            float otherSumScore = o.attitudeSum * weightConfig().getAttitudeWeight() / o.blogTotal +
                     o.commentSum * weightConfig().getCommentWeight() / o.blogTotal +
                     o.repostSum * weightConfig().getCommentWeight() / o.blogTotal;
             return Float.compare(otherSumScore, thisSumScore);
@@ -628,7 +492,7 @@ public class CalculationSearchFactory implements Runnable {
 
         @Override
         public int compareTo(ResultSortByInterestLabelScore o) {
-            return o.score.compareTo(o.score);
+            return o.score.compareTo(this.score);
         }
     }
 

@@ -182,4 +182,9 @@ public class UserCalculationSearch extends AbstractCalculationBuilder implements
         return searchResultTempBOS;
     }
 
+    @Override
+    public String getSearchLogInfo() {
+        return super.getSearchLogInfo();
+    }
+
 }

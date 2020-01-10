@@ -155,6 +155,11 @@ public class BlogCalculationSearch extends AbstractCalculationBuilder implements
         return result;
     }
 
+    @Override
+    public String getSearchLogInfo() {
+        return super.getSearchLogInfo();
+    }
+
     private List<ScoreOperation> mergeUid(Map<String, SearchResultTempBO> searchResVoMap, List<SearchResultTempBO> searchResultTempBos) {
         // 对博文结果集进行合并、分权操作
         long uidNum = System.currentTimeMillis();

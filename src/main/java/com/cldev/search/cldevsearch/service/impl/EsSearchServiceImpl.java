@@ -56,13 +56,13 @@ public class EsSearchServiceImpl implements EsSearchService {
 
     @Override
     public List<SearchResultTempBO> uidSearch(SearchConditionDTO searchConditionDTO) {
+        // 创建核心计算工厂
         CalculationSearchFactory calculationSearchFactory = CalculationSearchFactory.buildCalculation();
+        // 构建计算过程，并开始计算
         calculationSearchFactory.calculationBuilder(searchConditionDTO, elasticsearchTemplate.getClient()).searchStart();
-        try {
-            calculationSearchFactory.getCyclicBarrier().await();
-        } catch (InterruptedException | BrokenBarrierException e) {
-            e.printStackTrace();
-        }
+        // 启用父线程的线程栅栏，放置核心操作的异步导致方法提前结束
+        calculationSearchFactory.getCyclicBarrier().barrierMainThreadWait();
+        // 线程等待结束，获取最终结果集合进行返回
         return calculationSearchFactory.searchEnd();
     }
 

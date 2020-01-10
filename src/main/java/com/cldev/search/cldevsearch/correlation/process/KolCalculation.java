@@ -52,4 +52,11 @@ public interface KolCalculation {
      */
     List<SearchResultTempBO> getResult(Client client);
 
+    /**
+     * Gets the packaged log information for a search,
+     * and the default implementation for each search is given in the abstract {@link AbstractCalculationBuilder}
+     * @return Packaged log information
+     */
+    String getSearchLogInfo();
+
 }
