@@ -2,14 +2,12 @@ package com.cldev.search.cldevsearch.correlation.process;
 
 import com.cldev.search.cldevsearch.bo.SearchResultTempBO;
 import com.cldev.search.cldevsearch.bo.SearchResultTempBoWithSimilarityScore;
-import com.cldev.search.cldevsearch.correlation.filter.NameSimilarityFilter;
-import com.cldev.search.cldevsearch.correlation.filter.RemoveRepeatUserBlogFilter;
-import com.cldev.search.cldevsearch.correlation.filter.UserBlogMergeFilter;
-import com.cldev.search.cldevsearch.correlation.filter.UserInfoFilter;
+import com.cldev.search.cldevsearch.correlation.filter.*;
 import com.cldev.search.cldevsearch.dto.SearchConditionDTO;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Copyright © 2018 eSunny Info. Developer Stu. All rights reserved.
@@ -72,6 +70,12 @@ public class ResultFilterFactory {
                                                    List<SearchResultTempBO> blogResultFilter) {
         return this.filterMain(new RemoveRepeatUserBlogFilter(userNameResultMap, blogResultFilter),
                 "remove repeat user for user and blog time : ");
+    }
+
+    ResultFilterFactory relevanceOptimizationFilter(List<SearchResultTempBO> blogResultFilter, String uid,
+                                                    ConcurrentHashMap<Integer, Float> userInterestLabelScore) {
+        return this.filterMain(new RelevanceOptimizationFilter(blogResultFilter, uid, userInterestLabelScore),
+                "relevance optimization filter time : ");
     }
 
     public Object getResult() {
